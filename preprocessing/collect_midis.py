@@ -19,9 +19,8 @@ Usage:
 
 
 
-Assumes the Lakh MIDI dataset (lpd_5_cleansed) is in ./data_raw. Will
-output the extracted MIDI files to
-./data_processed/midis_tracks=<extracted_tracks>
+Will output the extracted MIDI files to
+./<DEST_DIR>/midis_tracks=<extracted_tracks>
 """
 
 import os
