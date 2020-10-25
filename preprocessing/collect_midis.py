@@ -57,7 +57,7 @@ def process_track_path(path, selected_tracks, collection_dir):
         save_path = os.path.join(collection_dir, save_name)
         multiroll.write(save_path)
 
-def collect_midis(base_dir, collection_dir, selected_tracks=["all"]):
+def collect_midis(base_dir, collection_dir, selected_tracks=["all"], n_tracks="all"):
     """
     Collects .npz files from raw data into processed data folders as .mid
     - selected_track should be a list of track(s) 
@@ -73,7 +73,8 @@ def collect_midis(base_dir, collection_dir, selected_tracks=["all"]):
     # Find all of the track name directories
     track_paths = list(Path(base_dir).rglob('TR*'))
 
-    track_paths = track_paths[:6*20]
+    if n_tracks != "all":
+        track_paths = track_paths[:int(n_tracks)]
 
     # create partial function with params pre-loaded so we can use the worker pool
     # note: this can't be a lambda function since those aren't pickle-able
@@ -88,10 +89,13 @@ if __name__ == "__main__":
                         'Bass', 'Drums', 'Guitar', 'Piano'])
     parser.add_argument('--base_data_dir',type=str, default="./data/raw/lpd/lpd_cleansed")
     parser.add_argument('--dest_dir',type=str, default="./data/processed/lpd/lpd_cleansed")
+    parser.add_argument('--num_tracks', type=str, default="all")
 
     args = parser.parse_args()
     if args.tracks == 'all':
         args.tracks = ['all']
+    if args.num_tracks != 'all':
+        args.num_tracks = int(args.num_tracks)
 
     # correct path sep for the os
     args.base_data_dir = os.path.normpath(args.base_data_dir)
@@ -102,4 +106,4 @@ if __name__ == "__main__":
     full_collection_dir = os.path.join(args.dest_dir, 'midis_tracks=' + '-'.join(args.tracks))
 
     print("Collecting MIDI files (tracks = {})".format(args.tracks))
-    collect_midis(args.base_data_dir, full_collection_dir, args.tracks)
+    collect_midis(args.base_data_dir, full_collection_dir, args.tracks, n_tracks=args.num_tracks)
