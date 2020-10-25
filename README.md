@@ -14,6 +14,8 @@ want to make it easy to push code to our cloud instance?
 
 # Data
 
+https://salu133445.github.io/lakh-pianoroll-dataset/dataset
+
 Download the cleansed Lakh Pianoroll Dataset compressed file and extract it to the `./data/raw` directory.
 This should create the folder structure: `./data/raw/lpd/lpd_cleansed/` where the contents of the `lpd_cleansed`
 folder is a large subfolder tree that terminates in `.npz` files that correspond to the pianoroll format.
