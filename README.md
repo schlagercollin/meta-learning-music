@@ -21,7 +21,10 @@ folder is a large subfolder tree that terminates in `.npz` files that correspond
 dataset down, since it's not a very git-friendly source tree).
 
 These `.npz` files represent the pianoroll tracks, and they can be conveniently manipulated using the `pypianoroll` Python
-library. Take a look at the script inside `./preprocessing/collect_midis.py`. It is a simple script that
+library. We have been using `pypianoroll` to extract tracks from the music. However, ultimately, we use the output .midi 
+files to create the dataset. Therefore, I'm not sure if we really need to use the `pypianoroll` library, and, in turn, the awkward `.npz` file format.
+
+Take a look at the script inside `./preprocessing/collect_midis.py`. It is a simple script that
 traverses the raw data directory file tree and processes each pianoroll (selecting a few tracks of interest)
 before writing it out to a .midi file. 
 
@@ -29,4 +32,4 @@ before writing it out to a .midi file.
 
 I've copied over the dataset class we used for our CS 236 project. You can find it inside `./dataset/midi_sequence_dataset.py`. 
 This dataset converts the .midi track into a series of tokens that can be used with a language model. `./dataset/data_utils.py`
-contains some helpfer functions that carry out this conversion.
+contains some helpfer functions that carry out this conversion. It uses the `music21` library out of MIT to aid in this token processing from the .midi format.
