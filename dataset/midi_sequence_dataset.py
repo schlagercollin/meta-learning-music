@@ -27,7 +27,7 @@ from multiprocessing import Pool
 
 
 class MIDISequenceDataset(Dataset):
-    def __init__(self, tracks, seq_len=120, num_threads=4, cache_dir='./data_processed/', dataset="lakh",
+    def __init__(self, tracks, seq_len=120, num_threads=4, cache_dir='./data/processed/lpd/lpd_cleansed', dataset="lakh",
                  partition="train"):
         # The sequence length needs to be divisible by 3 so that the positional encodings
         # line up properly
