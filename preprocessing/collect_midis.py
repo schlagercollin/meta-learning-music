@@ -34,7 +34,7 @@ from tqdm.contrib.concurrent import process_map
 from multiprocessing import Pool
 import functools
 
-def process_track_path(path, selected_tracks, collection_dir):
+def process_track_path(path, selected_tracks, collection_dir, remove_drums=False):
     for checksum in os.listdir(path):
         load_dir = os.path.join(path, checksum)
         multiroll = Multitrack(load_dir)
@@ -51,13 +51,24 @@ def process_track_path(path, selected_tracks, collection_dir):
             if len(multiroll.tracks) != len(selected_tracks):
                 continue
 
+        # Remove tracks with `is_drum` set to True
+        if remove_drums:
+            to_remove = [idx for idx, track in enumerate(multiroll.tracks) \
+                            if track.is_drum]
+            multiroll.remove_tracks(to_remove)
+
         # e.g. save_name = TR#########-bass-piano.mid
         name = os.path.basename(path)
-        save_name = '{}-{}.mid'.format(name, "-".join(selected_tracks).lower())
+
+        save_name = '{}-{}'.format(name, "-".join(selected_tracks).lower())
+        if remove_drums:
+            save_name += "-no_drums"
+        save_name += ".mid"
+
         save_path = os.path.join(collection_dir, save_name)
         multiroll.write(save_path)
 
-def collect_midis(base_dir, collection_dir, selected_tracks=["all"], n_tracks="all"):
+def collect_midis(base_dir, collection_dir, selected_tracks=["all"], n_tracks="all", remove_drums=False):
     """
     Collects .npz files from raw data into processed data folders as .mid
     - selected_track should be a list of track(s) 
@@ -79,7 +90,8 @@ def collect_midis(base_dir, collection_dir, selected_tracks=["all"], n_tracks="a
     # create partial function with params pre-loaded so we can use the worker pool
     # note: this can't be a lambda function since those aren't pickle-able
     _foo = functools.partial(process_track_path, selected_tracks=selected_tracks, 
-                                                 collection_dir=collection_dir)
+                                                 collection_dir=collection_dir,
+                                                 remove_drums=remove_drums)
     with Pool(6) as p:
         _ = list(tqdm(p.imap(_foo, track_paths), total=len(track_paths)))
 
@@ -90,6 +102,8 @@ if __name__ == "__main__":
     parser.add_argument('--base_data_dir',type=str, default="./data/raw/lpd/lpd_cleansed")
     parser.add_argument('--dest_dir',type=str, default="./data/processed/lpd/lpd_cleansed")
     parser.add_argument('--num_tracks', type=str, default="all")
+    parser.add_argument('--remove_drums', dest='remove_drums', action='store_true')
+    parser.set_defaults(remove_drums=False)
 
     args = parser.parse_args()
     if args.tracks == 'all':
@@ -104,6 +118,8 @@ if __name__ == "__main__":
     print(args.base_data_dir)
     
     full_collection_dir = os.path.join(args.dest_dir, 'midis_tracks=' + '-'.join(args.tracks))
+    if args.remove_drums:
+        full_collection_dir += "_no-drums"
 
     print("Collecting MIDI files (tracks = {})".format(args.tracks))
-    collect_midis(args.base_data_dir, full_collection_dir, args.tracks, n_tracks=args.num_tracks)
+    collect_midis(args.base_data_dir, full_collection_dir, args.tracks, n_tracks=args.num_tracks, remove_drums=args.remove_drums)
