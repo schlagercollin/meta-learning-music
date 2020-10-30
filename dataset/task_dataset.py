@@ -2,6 +2,7 @@ import os
 import glob
 import torch
 import pickle
+import random
 import argparse
 import numpy as np
 import pandas as pd
@@ -9,7 +10,7 @@ import music21 as m21
 import multiprocessing
 from tqdm import tqdm
 from torch.utils.data import Dataset
-from dataset.data_utils import encode, get_vocab
+from dataset.data_utils import encode, decode, get_vocab
 from multiprocessing import Pool
 
 
@@ -78,5 +79,27 @@ class TaskHandler():
         except:
             return "Failed", []
 
+
+    def sample_task(self, k, context_len, test_prefix_len):
+        '''
+        Samples a set of k examples from a particular genre (meta-training set), as well
+        as one additional example from the same genre (meta-test). 
+
+        The algorithm will be evaluated on its abiliy to predict the test example, given 
+        some preceding context, after training on the k example
+        '''
+        genre = random.choice(self.all_genres)
+        relevant_encodings = self.encodings_by_genre[genre]
+
+        song_names = random.choice(self.genre_to_songs[genre], k=k)
+
+
 if __name__ == '__main__':
     taskhandler = TaskHandler()
+
+    jazz_encodings = taskhandler.encodings_by_genre['Jazz']
+    example_encoding = list(jazz_encodings.values())[5]
+    print(list(jazz_encodings.keys())[5])
+
+    decoded = decode(example_encoding)
+    decoded.write('midi', 'test.mid')
