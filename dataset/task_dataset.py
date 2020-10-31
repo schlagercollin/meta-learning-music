@@ -80,26 +80,60 @@ class TaskHandler():
             return "Failed", []
 
 
-    def sample_task(self, k, context_len, test_prefix_len):
+    def sample_task(self, k_train=4, k_test=1, context_len=12, test_prefix_len=12):
         '''
-        Samples a set of k examples from a particular genre (meta-training set), as well
-        as one additional example from the same genre (meta-test). 
+        Samples a set of k_train examples from a particular genre (meta-training set), as well
+        as k_test additional example from the same genre (meta-test). 
 
-        The algorithm will be evaluated on its abiliy to predict the test example, given 
-        some preceding context, after training on the k example
+        The algorithm will be evaluated on its abiliy to predict the k_test test examples, given 
+        some preceding context, after training on the k_train examples
+
+
+        NOTES: we have a split in genres between train/val/test
         '''
         genre = random.choice(self.all_genres)
         relevant_encodings = self.encodings_by_genre[genre]
 
-        song_names = random.choice(self.genre_to_songs[genre], k=k)
+        song_names = random.sample(self.genre_to_songs[genre], k=k_train+k_test)
+
+        train_songs, test_songs = song_names[:k_train], song_names[k_train:]
+
+        train_context = np.zeros((k_train, context_len))
+        for idx, song in enumerate(train_songs):
+            full_encoding = relevant_encodings[song]
+            encoding_num_notes = len(full_encoding) // 3
+            context_num_notes = context_len // 3
+
+            context_start = 3 * random.randint(0, encoding_num_notes-context_num_notes)
+            context = full_encoding[context_start:context_start+context_len]
+
+            train_context[idx, :] = context
+
+        test_context = np.zeros((k_test, test_prefix_len+context_len))
+        for idx, song in enumerate(test_songs):
+            full_encoding = relevant_encodings[song]
+            encoding_num_notes = len(full_encoding) // 3
+            context_num_notes = (test_prefix_len+context_len) // 3
+
+            context_start = 3 * random.randint(0, encoding_num_notes-context_num_notes)
+            context = full_encoding[context_start:context_start+context_len+test_prefix_len]
+
+            test_context[idx, :] = context
+
+        return train_context, test_context, genre
+
 
 
 if __name__ == '__main__':
     taskhandler = TaskHandler()
 
-    jazz_encodings = taskhandler.encodings_by_genre['Jazz']
-    example_encoding = list(jazz_encodings.values())[5]
-    print(list(jazz_encodings.keys())[5])
+    tr, ts, gr = taskhandler.sample_task()
+    print("Genre: ", gr)
+    print("Train context:\n", tr)
 
-    decoded = decode(example_encoding)
-    decoded.write('midi', 'test.mid')
+    # jazz_encodings = taskhandler.encodings_by_genre['Jazz']
+    # example_encoding = list(jazz_encodings.values())[5]
+    # print(list(jazz_encodings.keys())[5])
+
+    # decoded = decode(example_encoding)
+    # decoded.write('midi', 'test.mid')
