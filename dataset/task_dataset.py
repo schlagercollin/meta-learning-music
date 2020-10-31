@@ -120,7 +120,7 @@ class TaskHandler():
 
             test_context[idx, :] = context
 
-        return train_context, test_context, genre
+        return torch.tensor(train_context, dtype=torch.long), torch.tensor(test_context, dtype=torch.long), genre
 
 
 
