@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import numpy as np
 import logging
 import time
+import higher
 
 import utils
 import constants
@@ -82,7 +83,7 @@ def train(model, dataloader, device, args):
     Outer training loop for MAML
     '''
     # Initialize the optimizer
-    outer_optimizer = torch.optim.Adam(model.parameters(), lr=args.outer_lr)
+    outer_optimizer = torch.optim.SGD(model.parameters(), lr=args.outer_lr)
 
     # Initialize the validation accuracy list
     validation_accs = []
@@ -115,60 +116,61 @@ def outer_maml_step(model, outer_optimizer, dataloader, device, args, split):
     '''
     Performs the outer training step for MAML.
     '''
+
+    model.train()
+
     # Sample train and test
     tr_batch, ts_batch, _ = dataloader.sample_task(meta_batch_size=args.meta_batch_size, k_train=args.num_support,
                                                    k_test=args.num_query, context_len=args.context_len,
                                                    test_prefix_len=args.test_prefix_len, split=split)
     tr_batch, ts_batch = tr_batch.to(device), ts_batch.to(device)
 
-    # Initialize loss and accuracy lists
-    losses = [0 for _ in range(args.num_inner_updates + 1)]
-    accuracies = [0 for _ in range(args.num_inner_updates + 1)]
+    # Recall that if we pass in a meta-batch that's too big, it gets minned down to the largest possible value
+    actual_meta_batch_size = tr_batch.size()[0]
 
-    # We keep track of the model's state dict, which will later be modified
-    for param in model.parameters():
-        print(param.name)
-    assert False
-    state_dict = model.state_dict()
-    copied_state_dict = {name: val.clone() for name, val in state_dict.items()}
+    inner_opt = torch.optim.SGD(model.parameters(), lr=1e-1)
+    query_losses = []
+    outer_optimizer.zero_grad()
 
     # Iterate over each task
-    for task_num in range(args.meta_batch_size):
+    for task_num in range(actual_meta_batch_size):
         task_tr, task_ts = tr_batch[task_num], ts_batch[task_num]
-        inner_maml_step(model, copied_state_dict, args, task_tr, task_ts, losses, accuracies)
 
-    # Perform gradient update
+        with higher.innerloop_ctx(model, inner_opt, copy_initial_weights=False) as (fnet, diffopt):
+            # Inside the inner loop, do gradient steps on the support set
+            for _ in range(args.num_inner_updates):
+                support_input, support_labels = task_tr[:, :-1], task_tr[:, 1:]
+                support_logits = fnet.forward(support_input)
+
+                # The class dimension needs to go in the middle for the CrossEntropyLoss
+                support_logits = support_logits.permute(0, 2, 1)
+
+                # And the labels need to be (batch, additional_dims)
+                support_labels = support_labels.permute(1, 0)
+
+                support_loss = F.cross_entropy(support_logits, support_labels)
+                diffopt.step(support_loss)
+
+            # After that, calculate the loss (for outer optimization) on the query set
+            query_input, query_labels = task_ts[:, :-1], task_ts[:, 1:]
+            query_logits = fnet.forward(query_input)
+
+            # The class dimension needs to go in the middle for the CrossEntropyLoss
+            query_logits = query_logits.permute(0, 2, 1)
+
+            # And the labels need to be (batch, additional_dims)
+            query_labels = query_labels.permute(1, 0)
+
+            query_loss = F.cross_entropy(query_logits, query_labels)
+            query_losses.append(query_loss.item())
+            query_loss.backward()
+
+
+    # If we're training, then step the outer optimizer
     if split == "train":
-        loss = losses[-1] / args.meta_batch_size
-        outer_optimizer.zero_grad()
-        loss.backward()
         outer_optimizer.step()
+        print("Query loss: ", np.mean(query_losses))
 
-    return accuracies[-1] / args.meta_batch_size
-
-def inner_maml_step(model, state_dict, args, task_tr, task_ts, losses, accuracies):
-    '''
-    Performs the inner training step for MAML for a particular task. Heavily influenced
-    by https://github.com/dragen1860/MAML-Pytorch/blob/master/meta.py.
-    '''
-
-    # Compute the performance before any updates
-    with torch.no_grad():
-        # There likely will be an off-by-one error here?
-        logits = model.forward_with_state_dict(task_ts, state_dict)
-        losses[0] += utils.compute_loss(task_ts, logits)
-
-    # Perform the inner loop updates
-    for iteration in range(args.num_inner_updates):
-        # Update on training data
-        train_logits = model.forward_with_params(task_tr, copied_params)
-        tr_loss = utils.compute_loss(task_tr, train_logits)
-        grad = torch.autograd.grad(tr_loss, copied_params)
-        copied_params = list(map(lambda p: p[1] - args.inner_lr * p[0], zip(grad, copied_params)))
-
-        # Compute the test losses
-        logits = model.forward_with_params(task_ts, copied_params)
-        losses[iteration + 1] += utils.compute_loss(task_ts, logits)
 
 if __name__ == '__main__':
     # Get the training arguments
