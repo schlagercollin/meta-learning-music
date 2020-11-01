@@ -20,7 +20,7 @@ def initialize_experiment(experiment_name, log_name, seed):
     initialize_experiment_folders(experiment_name)
 
     # Initialize logging
-    initialize_log(log_name)
+    initialize_log(experiment_name, log_name)
 
 def initialize_seeds(seed):
     """
@@ -74,3 +74,10 @@ def compute_loss(targets, preds):
     '''
     # TO-DO
     pass
+
+def mkdir(dirpath):
+    if not os.path.exists(dirpath):                                                     
+        try:                                                                                
+            os.makedirs(dirpath)                                                       
+        except FileExistsError:                                                             
+            pass

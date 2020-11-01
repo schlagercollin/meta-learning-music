@@ -12,6 +12,10 @@ NUM_INNER_UPDATES = 1
 OUTER_LR = 0.003
 INNER_LR = 0.003
 
+# Model architecture arguments
+EMBED_DIM = 128
+HIDDEN_DIM = 128
+
 # Data loading arguments
 NUM_SUPPORT = 7
 NUM_QUERY = 7
@@ -19,6 +23,11 @@ META_BATCH_SIZE = 16
 NUM_WORKERS = 4
 CONTEXT_LEN = 12
 TEST_PREFIX_LEN = 12
+
+# Splits
+TRAIN_SPLIT = ["Vocal", "Folk", "Pop_Rock", "International", "Electronic", "New Age"]
+VAL_SPLIT = ["RnB", "Blues", "Latin"]
+TEST_SPLIT = ["Country", "Reggae", "Jazz"]
 
 # Miscellaneous evaluation and checkpointing arguments
 MODEL_TYPES = ["SimpleLSTM"]

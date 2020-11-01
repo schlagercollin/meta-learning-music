@@ -10,9 +10,9 @@ import logging
 import time
 
 import utils
-import models.model_utils
 import constants
 from dataset.task_dataset import TaskHandler
+from models.model_utils import initialize_model, save_model
 
 def get_arguments():
     '''
@@ -30,6 +30,12 @@ def get_arguments():
                         help="The learning rate used for the outer optimization")
     parser.add_argument("--inner_lr", type=float, default=constants.INNER_LR,
                         help="The learning rate used for the inner optimization")
+
+    # Model architecture arguments
+    parser.add_argument("--embed_dim", type=int, default=constants.EMBED_DIM,
+                        help="Embedding dimension for simple LSTM")
+    parser.add_argument("--hidden_dim", type=int, default=constants.HIDDEN_DIM,
+                        help="Hidden dimension for simple LSTM")
 
     # Data loading arguments
     parser.add_argument("--num_support", type=int, default=constants.NUM_SUPPORT,
@@ -59,7 +65,7 @@ def get_arguments():
                         +"Setting -1 will start the model from scratch")
 
     # Experiment arguments
-    parser.add_argument("--experiment_name", type=str,
+    parser.add_argument("--experiment_name", type=str, default="test",
                         help="The name of the experiment (folder). This is where checkpoints, plots"\
                         +"and logs will reside.")
     parser.add_argument("--log_name", type=str, default="train",
@@ -100,7 +106,7 @@ def train(model, dataloader, device, args):
 
         # Save the model
         if (iteration + 1) & args.save_checkpoint_every == 0:
-            models.model_utils.save_model(model, args.experiment_name, iteration + 1)
+            save_model(model, args.experiment_name, iteration + 1)
 
     logging.info("We have finished training the model!")
     return validation_accs
@@ -111,18 +117,25 @@ def outer_maml_step(model, outer_optimizer, dataloader, device, args, split):
     '''
     # Sample train and test
     tr_batch, ts_batch, _ = dataloader.sample_task(meta_batch_size=args.meta_batch_size, k_train=args.num_support,
-                                                        k_test=args.num_query, context_len=args.context_len,
-                                                        test_prefix_len=args.test_prefix_len, split=split)
+                                                   k_test=args.num_query, context_len=args.context_len,
+                                                   test_prefix_len=args.test_prefix_len, split=split)
     tr_batch, ts_batch = tr_batch.to(device), ts_batch.to(device)
 
     # Initialize loss and accuracy lists
     losses = [0 for _ in range(args.num_inner_updates + 1)]
     accuracies = [0 for _ in range(args.num_inner_updates + 1)]
 
+    # We keep track of the model's state dict, which will later be modified
+    for param in model.parameters():
+        print(param.name)
+    assert False
+    state_dict = model.state_dict()
+    copied_state_dict = {name: val.clone() for name, val in state_dict.items()}
+
     # Iterate over each task
     for task_num in range(args.meta_batch_size):
-        task_tr, task_ts = tr_batch[task_num:task_num+1], ts_batch[task_num:task_num+1]
-        inner_maml_step(model, args, task_tr, task_ts, losses, accuracies)
+        task_tr, task_ts = tr_batch[task_num], ts_batch[task_num]
+        inner_maml_step(model, copied_state_dict, args, task_tr, task_ts, losses, accuracies)
 
     # Perform gradient update
     if split == "train":
@@ -133,22 +146,17 @@ def outer_maml_step(model, outer_optimizer, dataloader, device, args, split):
 
     return accuracies[-1] / args.meta_batch_size
 
-def inner_maml_step(model, args, task_tr, task_ts, losses, accuracies):
+def inner_maml_step(model, state_dict, args, task_tr, task_ts, losses, accuracies):
     '''
     Performs the inner training step for MAML for a particular task. Heavily influenced
     by https://github.com/dragen1860/MAML-Pytorch/blob/master/meta.py.
     '''
-    # "Copy" model parameters
-    copied_params = model.parameters()
 
     # Compute the performance before any updates
     with torch.no_grad():
         # There likely will be an off-by-one error here?
-        logits = model.forward_with_params(task_ts, copied_params)
+        logits = model.forward_with_state_dict(task_ts, state_dict)
         losses[0] += utils.compute_loss(task_ts, logits)
-
-        pred_tokens = F.softmax(logits, dim=2).argmax(dim=2)
-        accuracies[0] += torch.eq(pred_q, y_qry[i]).mean().item()
 
     # Perform the inner loop updates
     for iteration in range(args.num_inner_updates):
@@ -161,9 +169,6 @@ def inner_maml_step(model, args, task_tr, task_ts, losses, accuracies):
         # Compute the test losses
         logits = model.forward_with_params(task_ts, copied_params)
         losses[iteration + 1] += utils.compute_loss(task_ts, logits)
-        with torch.no_grad():
-            pred_tokens = F.softmax(logits, dim=2).argmax(dim=2)
-            accuracies[iteration + 1] += torch.eq(pred_q, y_qry[i]).mean().item()
 
 if __name__ == '__main__':
     # Get the training arguments
@@ -174,8 +179,8 @@ if __name__ == '__main__':
 
     # Initialize the model
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model_utils.initialize_model(args.experiment_name, args.model_type,
-                                         args.load_from_iteration, device)
+    model = initialize_model(args.experiment_name, args.model_type,
+                             args.load_from_iteration, device, args.embed_dim, args.hidden_dim)
 
     # Initialize the dataset
     # TO-DO: Enable sampling multiple tasks and sampling from train, val or test specically 
