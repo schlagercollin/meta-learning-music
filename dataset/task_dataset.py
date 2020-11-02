@@ -24,12 +24,14 @@ class TaskHandler():
 
         self.tracks = tracks
         self.cache_dir = cache_dir
-        self.midi_dir = os.path.join(self.cache_dir, 'lpd/lpd_cleansed/midis_tracks={}'.format(tracks))
-        self.encodings_dir = os.path.join(self.cache_dir, 'encodings/lpd/lpd_cleansed/midis_tracks={}'.format(tracks))
+        self.midi_dir = os.path.join(self.cache_dir, 'lpd', 'lpd_cleansed', 'midis_tracks={}'.format(tracks))
+        self.encodings_dir = os.path.join(self.cache_dir, 'encodings', 'lpd', 'lpd_cleansed', 'midis_tracks={}'.format(tracks))
+        if not os.path.exists(self.encodings_dir):
+            os.mkdir(self.encodings_dir)
 
-        self.song_list = np.load(os.path.join(self.cache_dir, 'info/songs_with_genre_info.npy'), allow_pickle=True)
-        self.song_to_genres = np.load(os.path.join(self.cache_dir, 'info/song_to_genres.npy'), allow_pickle=True).item()
-        self.genre_to_songs = np.load(os.path.join(self.cache_dir, 'info/genre_to_songs.npy'), allow_pickle=True).item()
+        self.song_list = np.load(os.path.join(self.cache_dir, 'info', 'songs_with_genre_info.npy'), allow_pickle=True)
+        self.song_to_genres = np.load(os.path.join(self.cache_dir, 'info', 'song_to_genres.npy'), allow_pickle=True).item()
+        self.genre_to_songs = np.load(os.path.join(self.cache_dir, 'info', 'genre_to_songs.npy'), allow_pickle=True).item()
 
         self.all_genres = list(self.genre_to_songs.keys())
         self.train_genres = TRAIN_SPLIT
@@ -37,8 +39,8 @@ class TaskHandler():
         self.test_genres = TEST_SPLIT
 
         # Brief hack because I donked up and overwrote the pop-rock encodings
-        self.all_genres.remove("Pop_Rock")
-        self.train_genres.remove("Pop_Rock")
+        # self.all_genres.remove("Pop_Rock")
+        # self.train_genres.remove("Pop_Rock")
 
         # Check to make sure that all of the encodings exist
         if all([os.path.exists(os.path.join(self.encodings_dir, '{}_encodings.pkl'.format(genre.lower()))) for genre in self.all_genres]):
@@ -83,7 +85,8 @@ class TaskHandler():
             encoding, _ = encode(stream)
 
             return filename, encoding
-        except:
+        except Exception as e:
+            print(e)
             return "Failed", []
 
 
@@ -145,7 +148,7 @@ class TaskHandler():
 
 
 if __name__ == '__main__':
-    taskhandler = TaskHandler(tracks="all_no-drums", num_threads=12)
+    taskhandler = TaskHandler(tracks="all-no_drums", num_threads=1)
 
     tr, ts, gr = taskhandler.sample_task()
     print("Genre: ", gr)

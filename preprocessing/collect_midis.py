@@ -119,7 +119,7 @@ if __name__ == "__main__":
     
     full_collection_dir = os.path.join(args.dest_dir, 'midis_tracks=' + '-'.join(args.tracks))
     if args.remove_drums:
-        full_collection_dir += "_no-drums"
+        full_collection_dir += "-no_drums"
         print("Removing drums")
 
     print("Collecting MIDI files (tracks = {})".format(args.tracks))
