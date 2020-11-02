@@ -17,12 +17,12 @@ EMBED_DIM = 128
 HIDDEN_DIM = 128
 
 # Data loading arguments
-NUM_SUPPORT = 7
-NUM_QUERY = 7
-META_BATCH_SIZE = 16
+NUM_SUPPORT = 5
+NUM_QUERY = 5
+META_BATCH_SIZE = 5
 NUM_WORKERS = 4
-CONTEXT_LEN = 12
-TEST_PREFIX_LEN = 12
+CONTEXT_LEN = 30
+TEST_PREFIX_LEN = 0
 
 # Splits
 TRAIN_SPLIT = ["Vocal", "Folk", "Pop_Rock", "International", "Electronic", "New Age"]
