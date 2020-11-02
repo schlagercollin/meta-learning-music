@@ -83,6 +83,8 @@ def train(model, dataloader, device, args):
     '''
     Outer training loop for MAML
     '''
+    # This appears to be necessary otherwise a _cudnn_rnn_backward RuntimeError is thrown
+    # Does this prevent us from using CUDA though?
     with torch.backends.cudnn.flags(enabled=False):
         # Initialize the optimizer
         outer_optimizer = torch.optim.SGD(model.parameters(), lr=args.outer_lr)
@@ -130,7 +132,7 @@ def outer_maml_step(model, outer_optimizer, dataloader, device, args, split):
     # Recall that if we pass in a meta-batch that's too big, it gets minned down to the largest possible value
     actual_meta_batch_size = tr_batch.size()[0]
 
-    inner_opt = torch.optim.SGD(model.parameters(), lr=1e-1)
+    inner_opt = torch.optim.SGD(model.parameters(), lr=args.inner_lr)
     query_losses = []
     outer_optimizer.zero_grad()
 
