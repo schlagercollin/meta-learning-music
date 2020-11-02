@@ -25,6 +25,7 @@ class TaskHandler():
         self.tracks = tracks
         self.cache_dir = cache_dir
         self.midi_dir = os.path.join(self.cache_dir, 'lpd/lpd_cleansed/midis_tracks={}'.format(tracks))
+        self.encodings_dir = os.path.join(self.cache_dir, 'encodings/lpd/lpd_cleansed/midis_tracks={}'.format(tracks))
 
         self.song_list = np.load(os.path.join(self.cache_dir, 'info/songs_with_genre_info.npy'), allow_pickle=True)
         self.song_to_genres = np.load(os.path.join(self.cache_dir, 'info/song_to_genres.npy'), allow_pickle=True).item()
@@ -40,13 +41,13 @@ class TaskHandler():
         self.train_genres.remove("Pop_Rock")
 
         # Check to make sure that all of the encodings exist
-        if all([os.path.exists(os.path.join(self.cache_dir, 'encodings/{}_encodings.pkl'.format(genre.lower()))) for genre in self.all_genres]):
+        if all([os.path.exists(os.path.join(self.encodings_dir, '{}_encodings.pkl'.format(genre.lower()))) for genre in self.all_genres]):
             self.encodings_by_genre = {}
 
             pbar = tqdm(self.all_genres)
             for genre in pbar:
                 pbar.set_description("Loading {} encodings".format(genre))
-                song_to_encoding = pickle.load(open(os.path.join(self.cache_dir, 'encodings/{}_encodings.pkl'.format(genre.lower())), "rb"))
+                song_to_encoding = pickle.load(open(os.path.join(self.encodings_dir, '{}_encodings.pkl'.format(genre.lower())), "rb"))
                 self.encodings_by_genre[genre] = song_to_encoding
 
         # Otherwise, construct them from the MIDI files
@@ -58,7 +59,7 @@ class TaskHandler():
                     info_by_midi = list(tqdm(pool.imap(self.encode_midi, self.song_list), desc='Encoding MIDI streams', total=len(self.song_list)))
 
                 for song_name, encoding in tqdm(info_by_midi, desc='Compiling encodings', total=len(info_by_midi)):
-                    if song_name is not 'Failed':
+                    if song_name != 'Failed':
                         genres = self.song_to_genres[song_name]
                         for genre in genres:
                             self.encodings_by_genre[genre][song_name] = encoding
@@ -66,14 +67,14 @@ class TaskHandler():
             else:
                 for filename in tqdm(self.song_list, desc='Encoding MIDI streams', total=len(self.song_list)):
                     song_name, encoding = self.encode_midi(filename)
-                    if song_name is not 'Failed':
+                    if song_name != 'Failed':
                         genres = self.song_to_genres[song_name]
                         for genre in genres:
                             self.encodings_by_genre[genre][song_name] = encoding
 
             for genre in self.all_genres:
-                genre_encodings - self.encodings_by_genre[genre]
-                pickle.dump(genre_encodings, open(os.path.join(self.cache_dir, "encodings/{}_encodings.pkl".format(genre.lower())), "wb"), protocol=pickle.HIGHEST_PROTOCOL)
+                genre_encodings = self.encodings_by_genre[genre]
+                pickle.dump(genre_encodings, open(os.path.join(self.encodings_dir, "{}_encodings.pkl".format(genre.lower())), "wb"), protocol=pickle.HIGHEST_PROTOCOL)
 
     def encode_midi(self, filename):
         path = os.path.join(self.midi_dir, "{}-{}.mid".format(filename, self.tracks))
@@ -144,7 +145,7 @@ class TaskHandler():
 
 
 if __name__ == '__main__':
-    taskhandler = TaskHandler()
+    taskhandler = TaskHandler(tracks="all_no-drums", num_threads=12)
 
     tr, ts, gr = taskhandler.sample_task()
     print("Genre: ", gr)
