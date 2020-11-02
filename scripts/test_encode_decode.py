@@ -68,41 +68,41 @@ def new_decode(encoding):
 
     full_stream = m21.stream.Stream()
 
-    # encoding_by_instrument = defaultdict(list)
+    encoding_by_instrument = defaultdict(list)
 
-    # quadruplets = (encoding[i:i+4] for i in range(0, len(encoding), 4))
-    # for instrument_name, pitch, duration, advance in quadruplets:
-    #     encoding_by_instrument[instrument_name].append((pitch, duration, advance))
+    quadruplets = (encoding[i:i+4] for i in range(0, len(encoding), 4))
+    for instrument_name, pitch, duration, advance in quadruplets:
+        encoding_by_instrument[instrument_name].append((pitch, duration, advance))
 
-    # for instrument_name, encoding in encoding_by_instrument.items():
-    #     inst_stream = m21.stream.Stream()
-    #     cur_offset = 0.0
+    for instrument_name, encoding in encoding_by_instrument.items():
+        inst_stream = m21.stream.Stream()
+        cur_offset = 0.0
 
-    #     if instrument_name == "Voice":
-    #         instrument = m21.instrument.Vocalist()
-    #     else:
-    #         instrument = eval("m21.instrument.{}()".format(instrument_name))
+        if instrument_name == "Voice":
+            instrument = m21.instrument.Vocalist()
+        else:
+            instrument = eval("m21.instrument.{}()".format(instrument_name))
 
-    #     inst_stream.insert(cur_offset, instrument)
+        inst_stream.insert(cur_offset, instrument)
 
-    #     for pitch, duration, advance in encoding:
-    #         m21_duration = m21.duration.Duration(duration)
-    #         if pitch == 0:
-    #             note = m21.note.Rest(duration=m21_duration)
-    #         else:
-    #             note = m21.note.Note(pitch, duration=m21_duration)
+        for pitch, duration, advance in encoding:
+            m21_duration = m21.duration.Duration(duration)
+            if pitch == 0:
+                note = m21.note.Rest(duration=m21_duration)
+            else:
+                note = m21.note.Note(pitch, duration=m21_duration)
 
-    #         inst_stream.insert(cur_offset, note)
-    #         cur_offset += advance
+            inst_stream.insert(cur_offset, note)
+            cur_offset += advance
 
-    #     full_stream.append(inst_stream)
+        full_stream.append(inst_stream)
 
 
 
 
     # The offset value of the current note / rest / chord
-    cur_offset = 0.0
-    prev_offset = 0.0
+    # cur_offset = 0.0
+    # prev_offset = 0.0
 
     instruments = set()
 
@@ -117,17 +117,17 @@ def new_decode(encoding):
         else:
             instrument = eval("m21.instrument.{}()".format(instrument_name))
 
-        if pitch == 0:
-            note = m21.note.Rest(duration=m21_duration)
-        else:
-            note = m21.note.Note(pitch, duration=m21_duration)
+    #     if pitch == 0:
+    #         note = m21.note.Rest(duration=m21_duration)
+    #     else:
+    #         note = m21.note.Note(pitch, duration=m21_duration)
 
-        # if cur_offset == 0 or cur_offset != prev_offset:
-        full_stream.insert(cur_offset, instrument)
-        full_stream.insert(cur_offset, note)
+    #     # if cur_offset == 0 or cur_offset != prev_offset:
+    #     full_stream.insert(cur_offset, instrument_name)
+    #     full_stream.insert(cur_offset, note)
 
-        prev_offset = cur_offset
-        cur_offset += advance
+    #     prev_offset = cur_offset
+    #     cur_offset += advance
 
     print(instruments)
     return full_stream
