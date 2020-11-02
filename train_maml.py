@@ -65,6 +65,10 @@ def get_arguments():
     parser.add_argument("--load_from_iteration", type=int, default=-1,
                         help="Initialize the model with a checkpoint from the provided iteration."\
                         +"Setting -1 will start the model from scratch")
+    parser.add_argument("--num_test_iterations", type=int, default=constants.TESTING_ITERATIONS,
+                        help="How many meta-test steps we wish to perform.")
+    parser.add_argument("--only_test", action='store_true',
+                        help="If set, we only test model performance. Assumes that a checkpoint is supplied.")
 
     # Experiment arguments
     parser.add_argument("--experiment_name", type=str, default="test",
@@ -176,6 +180,23 @@ def outer_maml_step(model, outer_optimizer, dataloader, device, args, split):
 
     return np.mean(query_losses)
 
+def test(model, dataloader, device, args):
+    '''
+    Testing function for MAML.
+    '''
+    # An artifact of the inner training loop
+    # Initialize the optimizer
+    outer_optimizer = torch.optim.SGD(model.parameters(), lr=args.outer_lr)
+
+    # Initialize the test loss list
+    test_losses = []
+
+    # Perform the meta-test iterations
+    for iteration in tqdm(range(args.num_test_iterations), desc="Running MAML"):
+        avg_loss = outer_maml_step(model, outer_optimizer, dataloader, device, args, "test")
+        test_losses.append(avg_loss)
+
+    return np.mean(test_losses), np.std(test_losses)
 
 if __name__ == '__main__':
     # Get the training arguments
@@ -190,10 +211,19 @@ if __name__ == '__main__':
                              args.load_from_iteration, device, args.embed_dim, args.hidden_dim)
 
     # Initialize the dataset
-    # TO-DO: Enable sampling multiple tasks and sampling from train, val or test specically 
+    # Enable sampling multiple tasks and sampling from train, val or test specically 
     dataloader = TaskHandler(num_threads=args.num_workers)
 
-    # Train the model using MAML
-    validation_losses = train(model, dataloader, device, args)
+    if not args.only_test:
+        # Train the model using MAML
+        validation_losses = train(model, dataloader, device, args)
 
-    # Save/visualize results: TO-DO
+        # Visualize validation losses
+        vis_utils.plot_losses(validation_losses, args.evaluate_every, title="Validation Losses",
+                              xlabel="Iterations", ylabel="Loss", folder=utils.get_plot_folder(args.experiment_name),
+                              name="validation_losses.png")
+
+    mean_test_loss, test_loss_std = test(model, dataloader, device, args)
+    logging.info("The mean test loss was {} with standard deviation {}".format(mean_test_loss,
+                                                                                   test_loss_std))
+
