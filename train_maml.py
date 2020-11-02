@@ -87,35 +87,36 @@ def train(model, dataloader, device, args):
     '''
     Outer training loop for MAML
     '''
-    # Initialize the optimizer
-    outer_optimizer = torch.optim.SGD(model.parameters(), lr=args.outer_lr)
+    with torch.backends.cudnn.flags(enabled=False):
+        # Initialize the optimizer
+        outer_optimizer = torch.optim.SGD(model.parameters(), lr=args.outer_lr)
 
-    # Initialize the validation loss list
-    validation_losses = []
+        # Initialize the validation loss list
+        validation_losses = []
 
-    # Perform the outer updates
-    for iteration in tqdm(range(args.num_train_iterations), desc="Running MAML"):
-        # Train step
-        avg_loss = outer_maml_step(model, outer_optimizer, dataloader, device, args, "train")
+        # Perform the outer updates
+        for iteration in tqdm(range(args.num_train_iterations), desc="Running MAML"):
+            # Train step
+            avg_loss = outer_maml_step(model, outer_optimizer, dataloader, device, args, "train")
 
-        # Report training accuracy
-        if (iteration + 1) % args.report_train_every == 0:
-            logging.info("Average Training Loss for Iteration {}/{}: {}".format(iteration + 1, args.num_train_iterations,
-                                                                         avg_loss))
+            # Report training accuracy
+            if (iteration + 1) % args.report_train_every == 0:
+                logging.info("Average Training Loss for Iteration {}/{}: {}".format(iteration + 1, args.num_train_iterations,
+                                                                            avg_loss))
 
-        # Perform validation
-        if (iteration + 1) % args.evaluate_every == 0:
-            avg_loss = outer_maml_step(model, outer_optimizer, dataloader, device, args, "val")
-            logging.info("Average Validation Loss for Iteration {}/{}: {}".format(iteration + 1, args.num_train_iterations,
-                                                                              avg_loss))
-            validation_losses.append(avg_loss)
+            # Perform validation
+            if (iteration + 1) % args.evaluate_every == 0:
+                avg_loss = outer_maml_step(model, outer_optimizer, dataloader, device, args, "val")
+                logging.info("Average Validation Loss for Iteration {}/{}: {}".format(iteration + 1, args.num_train_iterations,
+                                                                                avg_loss))
+                validation_losses.append(avg_loss)
 
-        # Save the model
-        if (iteration + 1) & args.save_checkpoint_every == 0:
-            save_model(model, args.experiment_name, iteration + 1)
+            # Save the model
+            if (iteration + 1) & args.save_checkpoint_every == 0:
+                save_model(model, args.experiment_name, iteration + 1)
 
-    logging.info("We have finished training the model!")
-    return validation_losses
+        logging.info("We have finished training the model!")
+        return validation_losses
 
 def outer_maml_step(model, outer_optimizer, dataloader, device, args, split):
     '''
