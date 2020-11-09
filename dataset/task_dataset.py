@@ -36,10 +36,6 @@ class TaskHandler():
         self.val_genres = VAL_SPLIT
         self.test_genres = TEST_SPLIT
 
-        # Brief hack because I donked up and overwrote the pop-rock encodings
-        self.all_genres.remove("Pop_Rock")
-        self.train_genres.remove("Pop_Rock")
-
         # Check to make sure that all of the encodings exist
         if all([os.path.exists(os.path.join(self.encodings_dir, '{}_encodings.pkl'.format(genre.lower()))) for genre in self.all_genres]):
             self.encodings_by_genre = {}

@@ -212,7 +212,7 @@ if __name__ == '__main__':
 
     # Initialize the dataset
     # Enable sampling multiple tasks and sampling from train, val or test specically 
-    dataloader = TaskHandler(num_threads=args.num_workers)
+    dataloader = TaskHandler(tracks="all-no_drums", num_threads=args.num_workers)
 
     if not args.only_test:
         # Train the model using MAML
