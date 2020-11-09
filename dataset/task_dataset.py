@@ -21,7 +21,6 @@ class TaskHandler():
                  num_threads=4,
                  cache_dir='./data/processed'):
 
-
         self.tracks = tracks
         self.cache_dir = cache_dir
         self.midi_dir = os.path.join(self.cache_dir, 'lpd', 'lpd_cleansed', 'midis_tracks={}'.format(tracks))
@@ -148,7 +147,7 @@ class TaskHandler():
 
 
 if __name__ == '__main__':
-    taskhandler = TaskHandler(tracks="all-no_drums", num_threads=1)
+    taskhandler = TaskHandler(tracks="all-no_drums", num_threads=6)
 
     tr, ts, gr = taskhandler.sample_task()
     print("Genre: ", gr)

@@ -4,7 +4,8 @@ from tqdm import tqdm
 from collections import defaultdict
 
 SAVE_PATH = "./data/processed"
-DATA_PATH = "./data/processed/lpd/lpd_cleansed/midis_tracks=all"
+# DATA_PATH = "./data/processed/lpd/lpd_cleansed/midis_tracks=all"
+DATA_PATH = "./data/processed/lpd/lpd_cleansed/midis_tracks=all-no_drums"
 GENRE_PATH = "./data/raw/genres/msd_tagtraum_cd1.cls"
 
 # First, we need to collect all the file names in our dataset
