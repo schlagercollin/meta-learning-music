@@ -187,17 +187,18 @@ def test(model, dataloader, device, args):
     '''
     # An artifact of the inner training loop
     # Initialize the optimizer
-    outer_optimizer = torch.optim.SGD(model.parameters(), lr=args.outer_lr)
+    with torch.backends.cudnn.flags(enabled=False):    
+        outer_optimizer = torch.optim.SGD(model.parameters(), lr=args.outer_lr)
 
-    # Initialize the test loss list
-    test_losses = []
+        # Initialize the test loss list
+        test_losses = []
 
-    # Perform the meta-test iterations
-    for iteration in tqdm(range(args.num_test_iterations), desc="Running MAML"):
-        avg_loss = outer_maml_step(model, outer_optimizer, dataloader, device, args, "test")
-        test_losses.append(avg_loss)
+        # Perform the meta-test iterations
+        for iteration in tqdm(range(args.num_test_iterations), desc="Running MAML"):
+            avg_loss = outer_maml_step(model, outer_optimizer, dataloader, device, args, "test")
+            test_losses.append(avg_loss)
 
-    return np.mean(test_losses), np.std(test_losses)
+        return np.mean(test_losses), np.std(test_losses)
 
 if __name__ == '__main__':
     # Get the training arguments
