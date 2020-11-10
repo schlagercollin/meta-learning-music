@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 import utils
 import constants
+import vis_utils
 from dataset.task_dataset import TaskHandler
 from models.model_utils import initialize_model, save_model
 
