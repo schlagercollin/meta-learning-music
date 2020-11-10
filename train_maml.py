@@ -114,7 +114,7 @@ def train(model, dataloader, device, args):
                 validation_losses.append(avg_loss)
 
             # Save the model
-            if (iteration + 1) & args.save_checkpoint_every == 0:
+            if (iteration + 1) % args.save_checkpoint_every == 0:
                 save_model(model, args.experiment_name, iteration + 1)
 
         logging.info("We have finished training the model!")
