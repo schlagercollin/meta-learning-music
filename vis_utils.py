@@ -13,7 +13,7 @@ def plot_losses(losses, val_iterations, title, xlabel,
     '''
     # Plot
     iterations = [i * val_iterations for i in range(1, len(losses) + 1)]
-    plt.plot(val_iterations, losses)
+    plt.plot(iterations, losses)
 
     # Set titles
     plt.title(title)
