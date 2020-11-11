@@ -17,7 +17,7 @@ from constants import TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT
 
 class TaskHandler():
     def __init__(self,
-                 tracks='all_no-drums',
+                 tracks='all-no_drums',
                  num_threads=4,
                  cache_dir='./data/processed'):
 
@@ -136,12 +136,12 @@ class TaskHandler():
 
                 test_context[batch_idx, idx, :] = context
 
-        return torch.tensor(train_context, dtype=torch.long), torch.tensor(test_context, dtype=torch.long), genre
+        return torch.tensor(train_context, dtype=torch.long), torch.tensor(test_context, dtype=torch.long), genres
 
 
 
 if __name__ == '__main__':
-    taskhandler = TaskHandler(tracks="all_no-drums", num_threads=12)
+    taskhandler = TaskHandler(tracks="all-no_drums", num_threads=12)
 
     tr, ts, gr = taskhandler.sample_task()
     print("Genre: ", gr)
