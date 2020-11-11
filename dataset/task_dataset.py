@@ -17,7 +17,7 @@ from constants import TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT
 
 class TaskHandler():
     def __init__(self,
-                 tracks='all',
+                 tracks='all_no-drums',
                  num_threads=4,
                  cache_dir='./data/processed'):
 
