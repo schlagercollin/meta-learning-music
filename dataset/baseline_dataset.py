@@ -83,19 +83,19 @@ class BaselineDataset(Dataset):
             return len(self.test_token_ids)//self.seq_len
 
     def __getitem__(self, idx):
-        print("Get item call with idx = {}".format(idx))
+        # print("Get item call with idx = {}".format(idx))
         start = idx * self.seq_len
 
-        if split == "train":
+        if self.split == "train":
             return torch.tensor(self.train_token_ids[start:start+self.seq_len], dtype=torch.long)
-        elif split == "val":
+        elif self.split == "val":
             return torch.tensor(self.val_token_ids[start:start+self.seq_len], dtype=torch.long)
-        elif split == "test":
+        elif self.split == "test":
             return torch.tensor(self.test_token_ids[start:start+self.seq_len], dtype=torch.long)
 
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
-    dataset = BaselineDataset()
+    dataset = BaselineDataset(tracks="all-no_drums")
 
     dataloader = DataLoader(dataset)
     print("Len dataset in train:", len(dataloader.dataset))

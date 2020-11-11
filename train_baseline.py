@@ -77,7 +77,8 @@ def get_arguments():
 
 def train(model, dataloader, device, args):
     # Initialize the optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    # Looks like we need SGD due to a sparse gradients problem?
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
 
     # Initialize the validation loss list
     validation_losses = []
@@ -88,16 +89,16 @@ def train(model, dataloader, device, args):
         with tqdm(dataloader, total=math.ceil(len(dataloader.dataset)/args.batch_size)) as progbar:
             progbar.set_description("[Epoch {}/{}]. Running batches...".format(epoch, args.num_epochs))
             for batch in progbar:
-                print("Batch starting!")
+                # print("Batch starting!")
                 batch = batch.to(device)
                 inputs, labels = batch[:, :-1], batch[:, 1:]
 
-                print("Batch split! Input size: ", inputs.shape)
+                # print("Batch split! Input size: ", inputs.shape)
 
                 # The class dimension needs to go in the middle for the CrossEntropyLoss
                 logits = model(inputs).permute(0, 2, 1)
 
-                print("Logits computed!")
+                # print("Logits computed!")
 
                 # And the labels need to be (batch, additional_dims)
                 labels = labels.permute(1, 0)
@@ -109,7 +110,7 @@ def train(model, dataloader, device, args):
                 optimizer.step()
                 optimizer.zero_grad()
 
-                print("Loss propagated!")
+                # print("Loss propagated!")
 
                 if (iteration + 1) % args.report_train_every == 0:
                     logging.info("Average Training Loss for Iteration {}: {}".format(iteration + 1, loss))
@@ -138,7 +139,7 @@ def validate(model, dataloader, device, args):
 
     losses = []
     with torch.no_grad():
-        for batch in tqdm(dataloader, desc='Validating', total=math.ceil(len(datlaoader.dataset)/args.batch_size)):
+        for batch in tqdm(dataloader, desc='Validating', total=math.ceil(len(dataloader.dataset)/args.batch_size)):
             batch = batch.to(device)
             inputs, labels = batch[:, :-1], batch[:, 1:]
 
@@ -198,9 +199,10 @@ if __name__ == '__main__':
                              args.load_from_iteration, device, args.embed_dim, args.hidden_dim)
 
     # Initialize the dataset
-    dataloader = DataLoader(BaselineDataset(tracks="all-no_drums", seq_len=args.context_len),
+    dataset = BaselineDataset(tracks="all-no_drums", seq_len=args.context_len)
+    dataloader = DataLoader(dataset,
                             shuffle=True,
-                            num_workers=args.num_workers)
+                            num_workers=0) # this is important else it hangs (multiprocessing issue?)
 
     if not args.only_test:
         # Train the model using MAML
