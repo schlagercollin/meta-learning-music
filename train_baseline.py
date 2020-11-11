@@ -48,7 +48,7 @@ def get_arguments():
     # Miscellaneous evaluation and checkpointing arguments
     parser.add_argument("--model_type", type=str, default="SimpleLSTM", choices=constants.MODEL_TYPES,
                         help="The name of the model class to be used")
-    parser.add_argument("--report_train_every", type=int, default=constants.REPORT_TRAIN_EVERY,
+    parser.add_argument("--report_train_every", type=int, default=constants.BASELINE_REPORT_TRAIN_EVERY,
                         help="Report the training accuracy every report_train_every iterations")
     parser.add_argument("--evaluate_every", type=int, default=constants.BASELINE_VAL_EVERY,
                         help="Compute validation accuracy every evaluate_every iterations")
