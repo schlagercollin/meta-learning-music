@@ -63,6 +63,8 @@ def get_arguments():
                         help="The number of condition sequences provided to the model prior to generation.")
     parser.add_argument("--generation_len", type=int, default=constants.GENERATION_LENGTH,
                         help="The length of the de-novo generation (total sequence will be context + generation length")
+    parser.add_argument("--temperature", type=float, default=constants.TEMPERATURE,
+                        help="Temperature for sampling from the softmax.")
     
     # Miscellaneous evaluation and checkpointing arguments
     parser.add_argument("--model_type", type=str, default="SimpleLSTM", choices=constants.MODEL_TYPES,
@@ -105,7 +107,7 @@ def generate(model, dataloader, device, args, split):
     # Sample train and test
     tr_batch, ts_batch, genres = dataloader.sample_task(meta_batch_size=args.meta_batch_size, k_train=args.num_support,
                                                    k_test=args.num_query, context_len=args.context_len,
-                                                   test_prefix_len=args.test_prefix_len, split=split)
+                                                   test_prefix_len=args.test_prefix_len, split="test")
 
     tr_batch, ts_batch = tr_batch.to(device), ts_batch.to(device)
 
@@ -145,7 +147,16 @@ def generate(model, dataloader, device, args, split):
                 for i in range(args.generation_len):
 
                     logits = fnet.forward(generated_seq)
-                    pred = torch.argmax(logits[-1, :, :], dim=-1).reshape(-1, 1)
+
+                    if args.temperature == 0:
+                        pred = torch.argmax(logits[-1, :, :], dim=-1).reshape(-1, 1)
+
+                    else:
+                        logits[-1, :, :] /= args.temperature
+                        # Note: K-masking not yet implemented
+                        log_probs = F.softmax(logits[-1, :, :], dim=-1)
+                        pred = torch.multinomial(log_probs, num_samples=1)
+
                     generated_seq = torch.cat((generated_seq, pred), dim=1)
 
             reference_sequences[genres[task_num]] = reference_seq
@@ -213,6 +224,7 @@ if __name__ == '__main__':
 
     print("Generating sequences with condition length of {} and generation length of {}.".format(args.condition_len, args.generation_len))
     print("Total generated sequence length will be: {}".format(args.condition_len + args.generation_len))
+    print("Generation sampling temperature: ", args.temperature)
     print()
 
     # Initialize the dataset
