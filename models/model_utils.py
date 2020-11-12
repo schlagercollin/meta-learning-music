@@ -6,18 +6,18 @@
 import torch
 import os
 
-from models.simple_lstm import SimpleLSTM
+from models.simple_lstm import SimpleLSTM, SimpleTransformer
 
 
 def initialize_model(experiment_name, model_type, load_from_iteration,
-                     device, embed_dim, hidden_dim):
+                     device, args):
     '''
     Initializes a model of the provided model type. If load_from_iteration
     is not set to -1, then we will load the model from the associated checkpoint
     in the experiment folder named experiment_name
     '''
     # Initialize a completely new model
-    model = get_model(model_type, embed_dim, hidden_dim)
+    model = get_model(model_type, args)
     model = model.to(device)
 
     # Load parameters from a checkpoint if necessary
@@ -26,12 +26,15 @@ def initialize_model(experiment_name, model_type, load_from_iteration,
 
     return model
 
-def get_model(model_type, embed_dim, hidden_dim):
+def get_model(model_type, args):
     '''
     Gets the model of the specified model type.
     '''
     if model_type == "SimpleLSTM":
-        return SimpleLSTM(embed_dim, hidden_dim)
+        return SimpleLSTM(args.embed_dim, args.hidden_dim)
+    elif model_type == "SimpleTransformer":
+        return SimpleTransformer(args.embed_dim, args.hidden_dim, args.num_blocks,
+                                 args.num_heads, args.context_len)
 
 def load_model(model, experiment_name, load_from_iteration):
     '''

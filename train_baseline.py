@@ -36,6 +36,11 @@ def get_arguments():
                         help="Embedding dimension for simple LSTM")
     parser.add_argument("--hidden_dim", type=int, default=constants.HIDDEN_DIM,
                         help="Hidden dimension for simple LSTM")
+    parser.add_argument("--num_blocks", type=int, defaults=constants.NUM_BLOCKS,
+                        help="Number of transformer blocks")
+    parser.add_argument("--num_heads", type=int, defaults=constants.NUM_HEADS,
+                        help="Number of attention heads")
+
 
     # Data loading arguments
     parser.add_argument("--batch_size", type=int, default=constants.BASELINE_BATCH_SIZE,
@@ -196,7 +201,7 @@ if __name__ == '__main__':
     # Initialize the model
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = initialize_model(args.experiment_name, args.model_type,
-                             args.load_from_iteration, device, args.embed_dim, args.hidden_dim)
+                             args.load_from_iteration, device, args)
 
     # Initialize the dataset
     dataset = BaselineDataset(tracks="all-no_drums", seq_len=args.context_len)

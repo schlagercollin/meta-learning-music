@@ -22,6 +22,8 @@ BASELINE_REPORT_TRAIN_EVERY = 500
 # Model architecture arguments
 EMBED_DIM = 128
 HIDDEN_DIM = 128
+NUM_BLOCKS = 3
+NUM_HEADS = 8
 
 # Data loading arguments
 NUM_SUPPORT = 5
