@@ -31,6 +31,11 @@ NUM_WORKERS = 4
 CONTEXT_LEN = 30
 TEST_PREFIX_LEN = 0
 
+# Data sampling arguments
+GENERATION_LENGTH = 30
+CONDITION_LENGTH = CONTEXT_LEN
+TEMPERATURE = 1.0
+
 # Splits
 TRAIN_SPLIT = ["Vocal", "Folk", "Pop_Rock", "International", "Electronic", "New Age"]
 VAL_SPLIT = ["RnB", "Blues", "Latin"]
