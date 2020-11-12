@@ -120,10 +120,10 @@ class TaskHandler():
                 encoding_num_notes = len(full_encoding) // 3
                 context_num_notes = context_len // 3
 
-                context_start = 3 * random.randint(0, encoding_num_notes-context_num_notes)
+                context_start = 3 * random.randint(0, max(0, encoding_num_notes-context_num_notes))
                 context = full_encoding[context_start:context_start+context_len]
 
-                train_context[batch_idx, idx, :] = context
+                train_context[batch_idx, idx, :len(context)] = context
 
             
             for idx, song in enumerate(test_songs):
@@ -131,10 +131,10 @@ class TaskHandler():
                 encoding_num_notes = len(full_encoding) // 3
                 context_num_notes = (test_prefix_len+context_len) // 3
 
-                context_start = 3 * random.randint(0, encoding_num_notes-context_num_notes)
+                context_start = 3 * random.randint(0, max(0, encoding_num_notes-context_num_notes))
                 context = full_encoding[context_start:context_start+context_len+test_prefix_len]
 
-                test_context[batch_idx, idx, :] = context
+                test_context[batch_idx, idx, :len(context)] = context
 
         return torch.tensor(train_context, dtype=torch.long), torch.tensor(test_context, dtype=torch.long), genre
 
