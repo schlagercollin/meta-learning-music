@@ -46,6 +46,8 @@ class TransformerBlock(nn.Module):
     def __init__(self, hidden_dim, num_heads, context_len):
         super(TransformerBlock, self).__init__()
 
+        self.num_heads = num_heads
+
         # Initialize the position encoding
         self.hidden_dim = hidden_dim
         self.pos_encoding_layer = PositionalEncodingLayer(hidden_dim, context_len)        
@@ -68,16 +70,24 @@ class TransformerBlock(nn.Module):
         Args:
             x: The projected embeddings of the input sequence with shape (batch_size, seq_len, hidden_dim)
         '''
+        batch_size, seq_len, hidden_dim = x.shape
+
         x = self.pos_encoding_layer(x)
 
-        # Perform Multihead Attention
+        # Multihead Attention expects shape (seq_Len, batch_size, hidden)
         x = x.permute(1, 0, 2)
+
+        # We permute the attention output back to (batch_size, seq_len, hidden)
         mha_x = self.attention(x, x, x, attn_mask=self.attention_mask)[0]
         mha_x = self.attention_norm(x + mha_x)
+
 
         # Perform the forward propagation
         f_x = F.relu(self.forward_proj(mha_x))
         f_x = self.forward_norm(mha_x + f_x)
+
+        # We need to swap the shape back to (batch_size, seq_len, hidden_dim)
+        f_x = f_x.permute(1, 0, 2)
 
         return f_x
         
@@ -102,7 +112,7 @@ class SimpleTransformer(nn.Module):
         self.blocks = [TransformerBlock(hidden_dim, num_heads, context_len) for _ in range(num_blocks)]
 
         # Initialize the final forward layer
-        self.forward = nn.Linear(hidden_dim, self.vocab_size)
+        self.forward_proj = nn.Linear(hidden_dim, self.vocab_size)
 
     def forward(self, token_ids):
         '''
@@ -135,7 +145,7 @@ class SimpleTransformer(nn.Module):
             h = block(h)
 
         # Compute the final projection
-        return self.forward(h)
+        return self.forward_proj(h)
 
         
         
