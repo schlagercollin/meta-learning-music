@@ -36,9 +36,9 @@ def get_arguments():
                         help="Embedding dimension for simple LSTM")
     parser.add_argument("--hidden_dim", type=int, default=constants.HIDDEN_DIM,
                         help="Hidden dimension for simple LSTM")
-    parser.add_argument("--num_blocks", type=int, defaults=constants.NUM_BLOCKS,
+    parser.add_argument("--num_blocks", type=int, default=constants.NUM_BLOCKS,
                         help="Number of transformer blocks")
-    parser.add_argument("--num_heads", type=int, defaults=constants.NUM_HEADS,
+    parser.add_argument("--num_heads", type=int, default=constants.NUM_HEADS,
                         help="Number of attention heads")
 
 

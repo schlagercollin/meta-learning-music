@@ -2,6 +2,7 @@
 # ------------------------
 # Implements a basic transformer based language model.
 
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -58,7 +59,7 @@ class TransformerBlock(nn.Module):
 
         # Initialize the feedforward layer and associated layernorm
         self.forward_norm = nn.LayerNorm(hidden_dim)
-        self.forward = nn.Linear(hidden_dim, hidden_dim)
+        self.forward_proj = nn.Linear(hidden_dim, hidden_dim)
 
     def forward(self, x):
         '''
@@ -75,14 +76,14 @@ class TransformerBlock(nn.Module):
         mha_x = self.attention_norm(x + mha_x)
 
         # Perform the forward propagation
-        f_x = F.relu(self.forward(mha_x))
+        f_x = F.relu(self.forward_proj(mha_x))
         f_x = self.forward_norm(mha_x + f_x)
 
         return f_x
         
 class SimpleTransformer(nn.Module):
 
-    def __init__(self, embed_dim, hidden_dim, num_blocks, num_heads, context_len):
+    def __init__(self, embed_dim, hidden_dim, num_blocks, num_heads, context_len, vocab_size):
         super(SimpleTransformer, self).__init__()
         
         # Initialize device
@@ -90,11 +91,12 @@ class SimpleTransformer(nn.Module):
 
         # Initialize the token and position embeddings
         self.vocab_size = vocab_size
-        self.token_embeding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
-        self.pos_embeddinng = nn.Embedding(3, embed_dim, sparse=True)
+        self.token_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
+        self.pos_embedding = nn.Embedding(3, embed_dim, sparse=True)
 
-        # Initialze the projection to the hidden dim
-        self.proj = nn.Conv1d(embed_dim, hidden_dim, 1)
+        # Initialze the projection to the hidden dim. Note that we need to double the embed_dim, because we
+        # concatenate the token and positional embeddings
+        self.proj = nn.Conv1d(2*embed_dim, hidden_dim, 1)
 
         # Initialize the transformer blocks
         self.blocks = [TransformerBlock(hidden_dim, num_heads, context_len) for _ in range(num_blocks)]

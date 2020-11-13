@@ -12,7 +12,7 @@ NUM_INNER_UPDATES = 1
 OUTER_LR = 0.003
 INNER_LR = 0.003
 
-# Baselin eargument
+# Baseline arguments
 BASELINE_NUM_EPOCHS = 10
 BASELINE_LR = 0.003
 BASELINE_BATCH_SIZE = 1
@@ -24,6 +24,7 @@ EMBED_DIM = 128
 HIDDEN_DIM = 128
 NUM_BLOCKS = 3
 NUM_HEADS = 8
+VOCAB_SIZE = 128
 
 # Data loading arguments
 NUM_SUPPORT = 5
@@ -44,7 +45,7 @@ VAL_SPLIT = ["RnB", "Blues", "Latin"]
 TEST_SPLIT = ["Country", "Reggae", "Jazz"]
 
 # Miscellaneous evaluation and checkpointing arguments
-MODEL_TYPES = ["SimpleLSTM"]
+MODEL_TYPES = ["SimpleLSTM", "SimpleTransformer"]
 EVALUATE_EVERY = 100
 REPORT_TRAIN_EVERY = 50
 SAVE_CHECKPOINT_EVERY = 1000
