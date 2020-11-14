@@ -74,6 +74,10 @@ def get_arguments():
                         help="How many meta-test steps we wish to perform.")
     parser.add_argument("--only_test", action='store_true',
                         help="If set, we only test model performance. Assumes that a checkpoint is supplied.")
+    parser.add_argument("--test_finetune", action='store_true',
+                        help="If set, we test model performance with a finetuning model")
+    parser.add_argument("--test_zero_shot", action='store_true',
+                        help="If set, we test model performance without an inner loop or finetuning.")
 
     # Experiment arguments
     parser.add_argument("--experiment_name", type=str, default="test",
@@ -206,10 +210,99 @@ def test(model, dataloader, device, args):
 
         # Perform the meta-test iterations
         for iteration in tqdm(range(args.num_test_iterations), desc="Running MAML"):
-            avg_loss = outer_maml_step(model, outer_optimizer, dataloader, device, args, "test")
+            if not args.test_finetune and not args.test_zero_shot: 
+                avg_loss = outer_maml_step(model, outer_optimizer, dataloader, device, args, "test")
+            elif args.test_zero_shot:
+                avg_loss = evaluate_zero_shot(model, dataloader, device, args)
+            else:
+                avg_loss = evaluate_with_finetuning(model, dataloader, device, args)
             test_losses.append(avg_loss)
 
         return np.mean(test_losses), np.std(test_losses)
+
+def evaluate_zero_shot(model, dataloader, device, args):
+    '''
+    Evaluates the model's performance on zero-shot adaptation to test data.
+    This is to see how necessary adaptation is.
+    '''
+    model.test()
+
+    # Sample test
+    _, ts_batch, _ = dataloader.sample_task(meta_batch_size=args.meta_batch_size, k_train=args.num_support,
+                                            k_test=args.num_query, context_len=args.context_len,
+                                            test_prefix_len=args.test_prefix_len, split=split)
+    B, Q, T = ts_batch.shape
+    ts_batch = ts_batch.to(device).view(B*Q, T)
+
+    # Perform predictions on the test batch
+    query_input, query_labels = ts_batch[:, :-1], ts_batch[:, 1:]
+    query_logits = model.forward(query_input)
+
+    # The class dimension needs to go in the middle for the CrossEntropyLoss
+    if args.model_type == "SimpleLSTM":
+        query_logits = query_logits.permute(0, 2, 1)
+    elif args.model_type == "SimpleTransformer":
+        query_logits = query_logits.permute(1, 2, 0)
+
+    # And the labels need to be (batch, additional_dims)
+    query_labels = query_labels.permute(1, 0)
+    query_loss = F.cross_entropy(query_logits, query_labels)
+    return query_loss.item()
+
+def evaluate_with_finetuning(model, dataloader, device, args):
+    '''
+    Evaluates a model's performance after finetuning on a task.
+    '''
+    model.train()
+
+    # Sample train and test
+    tr_batch, ts_batch, _ = dataloader.sample_task(meta_batch_size=args.meta_batch_size, k_train=args.num_support,
+                                                   k_test=args.num_query, context_len=args.context_len,
+                                                   test_prefix_len=args.test_prefix_len, split=split)
+    tr_batch, ts_batch = tr_batch.to(device), ts_batch.to(device)
+
+    # Reshape to single batch comprising all tasks
+    B, S, T = tr_batch.shape
+    task_tr_, task_ts = tr_batch.view(B*S, T), ts_batch.view(B*S, T)
+
+    inner_opt = torch.optim.SGD(model.parameters(), lr=args.inner_lr)
+    query_losses = []
+
+    # Iterate over each task
+    with higher.innerloop_ctx(model, inner_opt, copy_initial_weights=False) as (fnet, diffopt):
+        # Inside the inner loop, do gradient steps on the support set
+        for _ in range(args.num_inner_updates):
+            support_input, support_labels = task_tr[:, :-1], task_tr[:, 1:]
+            support_logits = fnet.forward(support_input)
+
+            # The class dimension needs to go in the middle for the CrossEntropyLoss, and the 
+            # necessary permute for this depends on the type of model
+            if args.model_type == "SimpleLSTM":
+                support_logits = support_logits.permute(0, 2, 1)
+            elif args.model_type == "SimpleTransformer":
+                support_logits = support_logits.permute(1, 2, 0)
+
+            # And the labels need to be (batch, additional_dims)
+            support_labels = support_labels.permute(1, 0)
+
+            support_loss = F.cross_entropy(support_logits, support_labels)
+            diffopt.step(support_loss)
+
+        # After that, calculate the loss (for outer optimization) on the query set
+        query_input, query_labels = task_ts[:, :-1], task_ts[:, 1:]
+        query_logits = fnet.forward(query_input)
+
+        # The class dimension needs to go in the middle for the CrossEntropyLoss
+        if args.model_type == "SimpleLSTM":
+            query_logits = query_logits.permute(0, 2, 1)
+        elif args.model_type == "SimpleTransformer":
+            query_logits = query_logits.permute(1, 2, 0)
+
+        # And the labels need to be (batch, additional_dims)
+        query_labels = query_labels.permute(1, 0)
+        
+        query_loss = F.cross_entropy(query_logits, query_labels)
+        return query_loss.item()
 
 if __name__ == '__main__':
     # Get the training arguments
