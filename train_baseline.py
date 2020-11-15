@@ -93,32 +93,28 @@ def train(model, dataloader, device, args):
     for epoch in range(args.num_epochs):
         with tqdm(dataloader, total=math.ceil(len(dataloader.dataset)/args.batch_size)) as progbar:
             progbar.set_description("[Epoch {}/{}]. Running batches...".format(epoch, args.num_epochs))
+            recent_train_losses = []
             for batch in progbar:
-                # print("Batch starting!")
                 batch = batch.to(device)
-                inputs, labels = batch[:, :-1], batch[:, 1:]
+                inputs, labels = batch[:, :, :-1], batch[:, :, 1:]
 
-                # print("Batch split! Input size: ", inputs.shape)
+                logits = model(inputs)
 
                 # The class dimension needs to go in the middle for the CrossEntropyLoss
-                logits = model(inputs).permute(0, 2, 1)
-
-                # print("Logits computed!")
-
-                # And the labels need to be (batch, additional_dims)
-                labels = labels.permute(1, 0)
+                logits = logits.permute(1, 3, 2, 0)
 
                 loss = F.cross_entropy(logits, labels)
-                progbar.set_postfix(Loss=loss.item())
+
+                recent_train_losses.append(loss.item())
+                progbar.set_postfix(Loss=np.mean(recent_train_losses))
 
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
 
-                # print("Loss propagated!")
-
                 if (iteration + 1) % args.report_train_every == 0:
-                    logging.info("Average Training Loss for Iteration {}: {}".format(iteration + 1, loss))
+                    logging.info("Average Training Loss for Iteration {}: {}".format(iteration + 1, np.mean(recent_train_losses)))
+                    recent_train_losses = []
 
                 if (iteration + 1) % args.evaluate_every == 0:
                     val_loss, _ = validate(model, dataloader, device, args)
@@ -146,13 +142,10 @@ def validate(model, dataloader, device, args):
     with torch.no_grad():
         for batch in tqdm(dataloader, desc='Validating', total=math.ceil(len(dataloader.dataset)/args.batch_size)):
             batch = batch.to(device)
-            inputs, labels = batch[:, :-1], batch[:, 1:]
+            inputs, labels = batch[:, :, :-1], batch[:, :, 1:]
 
             # The class dimension needs to go in the middle for the CrossEntropyLoss
-            logits = model(inputs).permute(0, 2, 1)
-
-            # And the labels need to be (batch, additional_dims)
-            labels = labels.permute(1, 0)
+            logits = model(inputs).permute(1, 3, 2, 0)
 
             loss = F.cross_entropy(logits, labels)
             losses.append(loss.item())
@@ -174,13 +167,10 @@ def test(model, dataloader, device, args):
     with torch.no_grad():
         for batch in tqdm(dataloader, desc='Testing', total=math.ceil(len(dataloader.dataset)/args.batch_size)):
             batch = batch.to(device)
-            inputs, labels = batch[:, :-1], batch[:, 1:]
+            inputs, labels = batch[:, :, :-1], batch[:, :, 1:]
 
             # The class dimension needs to go in the middle for the CrossEntropyLoss
-            logits = model(inputs).permute(0, 2, 1)
-
-            # And the labels need to be (batch, additional_dims)
-            labels = labels.permute(1, 0)
+            logits = model(inputs).permute(1, 3, 2, 0)
 
             loss = F.cross_entropy(logits, labels)
             losses.append(loss.item())

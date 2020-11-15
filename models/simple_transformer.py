@@ -46,7 +46,6 @@ class TransformerBlock(nn.Module):
 
     def __init__(self, hidden_dim, num_heads, context_len):
         super(TransformerBlock, self).__init__()
-
         self.num_heads = num_heads
 
         # Initialize the position encoding
@@ -97,23 +96,30 @@ class SimpleTransformer(nn.Module):
     def __init__(self, embed_dim, hidden_dim, num_blocks, num_heads, context_len, vocab_size):
         super(SimpleTransformer, self).__init__()
         
+
+        # NOTE: the context_len is in total number of tokens. We need to divide this by 3 
+        # (to account for the fact that we process pitch, duration, and advance simulatenously) 
+        # and then subtract 1 (to account for the fact that we omit the final token  in the input)
+        self.context_len = (context_len // 3) - 1
+
         # Initialize device
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         # Initialize the token and position embeddings
         self.vocab_size = vocab_size
-        self.token_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
-        self.pos_embedding = nn.Embedding(3, embed_dim, sparse=True)
+        self.pitch_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
+        self.duration_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
+        self.advance_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
 
-        # Initialze the projection to the hidden dim. Note that we need to double the embed_dim, because we
-        # concatenate the token and positional embeddings
-        self.proj = nn.Conv1d(2*embed_dim, hidden_dim, 1)
+        # Initialze the projection to the hidden dim. Note that we need to triple the embed_dim, because we
+        # concatenate the pitch, duration, and advance embeddings
+        self.proj = nn.Conv1d(3*embed_dim, hidden_dim, 1)
 
         # Initialize the transformer blocks
-        self.blocks = [TransformerBlock(hidden_dim, num_heads, context_len) for _ in range(num_blocks)]
+        self.blocks = [TransformerBlock(hidden_dim, num_heads, self.context_len) for _ in range(num_blocks)]
 
         # Initialize the final forward layer
-        self.forward_proj = nn.Linear(hidden_dim, self.vocab_size)
+        self.forward_proj = nn.Linear(hidden_dim, self.vocab_size*3)
 
     def forward(self, token_ids, pos_idx_start=0):
         '''
@@ -122,20 +128,21 @@ class SimpleTransformer(nn.Module):
         Args:
            token_ids: Token ids with size (batch_size, sequence_length)
         '''
-        batch_size, seq_len = token_ids.shape
+        batch_size, _, seq_len = token_ids.shape
 
-        # Perform the token embedding
-        token_embeds = self.token_embedding(token_ids)
-        token_embeds = token_embeds.permute(1, 0, 2) # (seq_len, batch_size, embed_dim)
-        
-        # Perform the position embedding
-        pos_ids = torch.tensor([0, 1, 2]).repeat(batch_size, math.ceil(seq_len/3)+1)[:, pos_idx_start:seq_len+pos_idx_start]
-        pos_ids = pos_ids.to(self.device)
-        pos_embeds = self.pos_embedding(pos_ids)
-        pos_embeds = pos_embeds.permute(1, 0, 2)
+        pitch_ids, duration_ids, advance_ids = torch.split(token_ids, 1, dim=1)
+
+        pitch_embeds = self.pitch_embedding(pitch_ids.squeeze(1))
+        duration_embeds = self.duration_embedding(duration_ids.squeeze(1))
+        advance_embeds = self.advance_embedding(advance_ids.squeeze(1))
+
+        # Permute into (seq_len, batch, embed_size)
+        pitch_embeds = pitch_embeds.permute(1, 0, 2)
+        duration_embeds = duration_embeds.permute(1, 0, 2)
+        advance_embeds = advance_embeds.permute(1, 0, 2)
 
         # Get the overall embedding
-        full_embeds = torch.cat((token_embeds, pos_embeds), dim=2) # (seq_len, batch_size, 2*embed_dim)
+        full_embeds = torch.cat((pitch_embeds, duration_embeds, advance_embeds), dim=2) # (seq_len, batch_size, 3*embed_dim)
 
         # Perform the projection onto hidden_dim
         h = self.proj(full_embeds.permute(1, 2, 0)) # (batch_size, embed_dim, seq_len)
@@ -145,8 +152,17 @@ class SimpleTransformer(nn.Module):
         for block in self.blocks:
             h = block(h)
 
+        # Output of proj is (batch, seq_len, 3*vocab_size)
+        projected = self.forward_proj(h)
+
+        # First we permute into (seq_len, batch, 3*vocab_size)
+        projected = projected.permute(1, 0, 2)
+
+        # And then we reshape to (seq_len, batch, 3, vocab_size)
+        projected = projected.reshape(seq_len, batch_size, 3, self.vocab_size)
+
         # Compute the final projection
-        return self.forward_proj(h)
+        return projected
 
         
         

@@ -87,11 +87,14 @@ class BaselineDataset(Dataset):
         start = idx * self.seq_len
 
         if self.split == "train":
-            return torch.tensor(self.train_token_ids[start:start+self.seq_len], dtype=torch.long)
+            tokens = torch.tensor(self.train_token_ids[start:start+self.seq_len], dtype=torch.long)
+            return tokens.reshape(len(tokens)//3, 3).T
         elif self.split == "val":
-            return torch.tensor(self.val_token_ids[start:start+self.seq_len], dtype=torch.long)
+            tokens = torch.tensor(self.val_token_ids[start:start+self.seq_len], dtype=torch.long)
+            return tokens.reshape(len(tokens)//3, 3).T
         elif self.split == "test":
-            return torch.tensor(self.test_token_ids[start:start+self.seq_len], dtype=torch.long)
+            tokens = torch.tensor(self.test_token_ids[start:start+self.seq_len], dtype=torch.long)
+            return tokens.reshape(len(tokens)//3, 3).T
 
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
