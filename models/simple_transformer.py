@@ -33,6 +33,7 @@ class PositionalEncodingLayer(nn.Module):
         Returns:
             embedding (torch.tensor): positional encoded input based on 'Attention Is All You Need' paper
         """
+
         embedding = x + self.pos_encoding[:, :x.shape[1]]
         #embedding = F.dropout(embedding, p=c.POS_ENCODE_DROP_PROB, training=self.training)
         return embedding

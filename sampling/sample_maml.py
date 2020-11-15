@@ -43,6 +43,10 @@ def get_arguments():
                         help="Embedding dimension for simple LSTM")
     parser.add_argument("--hidden_dim", type=int, default=constants.HIDDEN_DIM,
                         help="Hidden dimension for simple LSTM")
+    parser.add_argument("--num_blocks", type=int, default=constants.NUM_BLOCKS,
+                        help="Number of transformer blocks")
+    parser.add_argument("--num_heads", type=int, default=constants.NUM_HEADS,
+                        help="Number of attention heads")
 
     # Data loading arguments
     parser.add_argument("--num_support", type=int, default=constants.NUM_SUPPORT,
@@ -130,8 +134,12 @@ def generate(model, dataloader, device, args, split):
                 support_input, support_labels = task_tr[:, :-1], task_tr[:, 1:]
                 support_logits = fnet.forward(support_input)
 
-                # The class dimension needs to go in the middle for the CrossEntropyLoss
-                support_logits = support_logits.permute(0, 2, 1)
+                # The class dimension needs to go in the middle for the CrossEntropyLoss, and the 
+                # necessary permute for this depends on the type of model
+                if args.model_type == "SimpleLSTM":
+                    support_logits = support_logits.permute(0, 2, 1)
+                elif args.model_type == "SimpleTransformer":
+                    support_logits = support_logits.permute(1, 2, 0)
 
                 # And the labels need to be (batch, additional_dims)
                 support_labels = support_labels.permute(1, 0)
@@ -146,7 +154,14 @@ def generate(model, dataloader, device, args, split):
             with torch.no_grad():
                 for i in range(args.generation_len):
 
-                    logits = fnet.forward(generated_seq)
+                    # In order to have the transformer not complain, we pass only the context_len - 1 last
+                    # tokens of the generated output into the model
+                    logits = fnet.forward(generated_seq[:, -(args.condition_len-1):])
+
+                    # Transformer outputs logits as (batch, seq_len, hidden), so we permute it
+                    # to match the expected (seq_len, batch, hidden_)
+                    if args.model_type == "SimpleTransformer":
+                        logits = logits.permute(1, 0, 2)
 
                     if args.temperature == 0:
                         pred = torch.argmax(logits[-1, :, :], dim=-1).reshape(-1, 1)
@@ -220,7 +235,7 @@ if __name__ == '__main__':
     # Initialize the model
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = initialize_model(args.experiment_name, args.model_type,
-                             args.load_from_iteration, device, args.embed_dim, args.hidden_dim)
+                             args.load_from_iteration, device, args)
 
     print("Generating sequences with condition length of {} and generation length of {}.".format(args.condition_len, args.generation_len))
     print("Total generated sequence length will be: {}".format(args.condition_len + args.generation_len))
