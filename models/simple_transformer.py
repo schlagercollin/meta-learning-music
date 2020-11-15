@@ -20,13 +20,6 @@ class PositionalEncodingLayer(nn.Module):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.embed_dim = embed_dim
         self.context_len = context_len
-
-        pos_encoding = torch.zeros(context_len, embed_dim).to(self.device)
-        position = torch.arange(0, context_len, dtype=torch.float).unsqueeze(1).to(self.device)
-        div_term = torch.exp(torch.arange(0, embed_dim, 2).float() * (-math.log(10000.0) / embed_dim)).to(self.device)
-        pos_encoding[:, 0::2] = torch.sin(position * div_term)
-        pos_encoding[:, 1::2] = torch.cos(position * div_term)
-        pos_encoding = pos_encoding.unsqueeze(0)
         pos_encoding = self.construct_pos_encoding(self.context_len)
         self.register_buffer('pos_encoding', pos_encoding)
 

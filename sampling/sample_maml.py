@@ -156,7 +156,7 @@ def generate(model, dataloader, device, args, split):
 
                     # In order to have the transformer not complain, we pass only the context_len - 1 last
                     # tokens of the generated output into the model
-                    logits = fnet.forward(generated_seq[:, -(args.condition_len-1):], pos_idx_start=(i+1)%3)
+                    logits = fnet.forward(generated_seq)
 
                     # Transformer outputs logits as (batch, seq_len, hidden), so we permute it
                     # to match the expected (seq_len, batch, hidden_)
