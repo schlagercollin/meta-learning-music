@@ -108,8 +108,8 @@ class SimpleTransformer(nn.Module):
 
         # Initialize the token and position embeddings
         self.vocab_size = vocab_size
-        self.token_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
-        self.pos_embedding = nn.Embedding(3, embed_dim, sparse=True)
+        self.token_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=False)
+        self.pos_embedding = nn.Embedding(3, embed_dim, sparse=False)
 
         # Initialze the projection to the hidden dim. Note that we need to double the embed_dim, because we
         # concatenate the token and positional embeddings
