@@ -123,7 +123,10 @@ class SimpleTransformer(nn.Module):
         # Initialize the final forward layer
         self.forward_proj = nn.Linear(hidden_dim, self.vocab_size)
 
-    def forward(self, token_ids, adaptive_mask=False):
+        # Initialize adaptive mask state
+        self.adaptive_mask = False
+
+    def forward(self, token_ids):
         '''
         Performs the forward pass.
 
@@ -152,7 +155,7 @@ class SimpleTransformer(nn.Module):
         # Apply the transformer blocks
         h = h.permute(0, 2, 1) # (batch_size, seq_len, embed_dim)
         for block in self.blocks:
-            h = block(h, adaptive_mask)
+            h = block(h, self.adaptive_mask)
 
         # Compute the final projection
         return self.forward_proj(h)
