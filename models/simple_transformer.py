@@ -18,6 +18,8 @@ class PositionalEncodingLayer(nn.Module):
         super(PositionalEncodingLayer, self).__init__()
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.embed_dim = embed_dim
+        self.context_len = context_len
 
         pos_encoding = torch.zeros(context_len, embed_dim).to(self.device)
         position = torch.arange(0, context_len, dtype=torch.float).unsqueeze(1).to(self.device)
@@ -25,19 +27,32 @@ class PositionalEncodingLayer(nn.Module):
         pos_encoding[:, 0::2] = torch.sin(position * div_term)
         pos_encoding[:, 1::2] = torch.cos(position * div_term)
         pos_encoding = pos_encoding.unsqueeze(0)
+        pos_encoding = self.construct_pos_encoding(self.context_len)
         self.register_buffer('pos_encoding', pos_encoding)
 
-    def forward(self, x):
-        """
+    def construct_pos_encoding(context_len):
+        pos_encoding = torch.zeros(context_len, self.embed_dim).to(self.device)
+        position = torch.arange(0, context_len, dtype=torch.float).unsqueeze(1).to(self.device)
+        div_term = torch.exp(torch.arange(0, self.embed_dim, 2).float() * (-math.log(10000.0) / self.embed_dim)).to(self.device)
+        pos_encoding[:, 0::2] = torch.sin(position * div_term)
+        pos_encoding[:, 1::2] = torch.cos(position * div_term)
+        pos_encoding = pos_encoding.unsqueeze(0)
+        return pos_encoding
 
+    def forward(self, x, adaptive_encoding=False):
+        """
         Args:
             x (torch.tensor): input that needs to have pos embedding; 
                 shape (batch_size, max_sequence_length, hidden_dim)
         Returns:
             embedding (torch.tensor): positional encoded input based on 'Attention Is All You Need' paper
         """
-
-        embedding = x + self.pos_encoding[:, :x.shape[1]]
+        if adaptive_encoding:
+            _, L, _ = x.shape
+            pos_encoding = self.construct_pos_encoding(L)
+            embedding = x + pos_encoding[:, :x.shape[1]]
+        else:
+            embedding = x + self.pos_encoding[:, :x.shape[1]]
         #embedding = F.dropout(embedding, p=c.POS_ENCODE_DROP_PROB, training=self.training)
         return embedding
 
@@ -79,7 +94,7 @@ class TransformerBlock(nn.Module):
         batch_size, seq_len, hidden_dim = x.shape
 
         x = x.to(self.device)
-        x = self.pos_encoding_layer(x)
+        x = self.pos_encoding_layer(x, adaptive_mask)
 
         # Multihead Attention expects shape (seq_len, batch_size, hidden)
         x = x.permute(1, 0, 2)
