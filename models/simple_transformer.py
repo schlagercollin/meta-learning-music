@@ -69,7 +69,7 @@ class TransformerBlock(nn.Module):
         self.forward_norm = nn.LayerNorm(hidden_dim).to(self.device)
         self.forward_proj = nn.Linear(hidden_dim, hidden_dim).to(self.device)
 
-    def forward(self, x):
+    def forward(self, x, adaptive_mask):
         '''
         Performs a forward pass of the TransformerBlock
         
@@ -81,11 +81,13 @@ class TransformerBlock(nn.Module):
         x = x.to(self.device)
         x = self.pos_encoding_layer(x)
 
-        # Multihead Attention expects shape (seq_Len, batch_size, hidden)
+        # Multihead Attention expects shape (seq_len, batch_size, hidden)
         x = x.permute(1, 0, 2)
 
         # We permute the attention output back to (batch_size, seq_len, hidden)
-        mha_x = self.attention(x, x, x, attn_mask=self.attention_mask)[0]
+        attention_mask = torch.tril(torch.ones(seq_len, seq_len)).to(self.device) if adaptive_mask \
+            else self.attention_mask
+        mha_x = self.attention(x, x, x, attn_mask=attention_mask)[0]
         mha_x = self.attention_norm(x + mha_x)
 
 
@@ -121,7 +123,7 @@ class SimpleTransformer(nn.Module):
         # Initialize the final forward layer
         self.forward_proj = nn.Linear(hidden_dim, self.vocab_size)
 
-    def forward(self, token_ids, pos_idx_start=0):
+    def forward(self, token_ids, adaptive_mask=False):
         '''
         Performs the forward pass.
 
@@ -136,7 +138,7 @@ class SimpleTransformer(nn.Module):
         token_embeds = token_embeds.permute(1, 0, 2) # (seq_len, batch_size, embed_dim)
         
         # Perform the position embedding
-        pos_ids = torch.tensor([0, 1, 2]).repeat(batch_size, math.ceil(seq_len/3)+1)[:, pos_idx_start:seq_len+pos_idx_start]
+        pos_ids = torch.tensor([0, 1, 2]).repeat(batch_size, math.ceil(seq_len/3))[:, :seq_len]
         pos_ids = pos_ids.to(self.device)
         pos_embeds = self.pos_embedding(pos_ids)
         pos_embeds = pos_embeds.permute(1, 0, 2)
@@ -150,7 +152,7 @@ class SimpleTransformer(nn.Module):
         # Apply the transformer blocks
         h = h.permute(0, 2, 1) # (batch_size, seq_len, embed_dim)
         for block in self.blocks:
-            h = block(h)
+            h = block(h, adaptive_mask)
 
         # Compute the final projection
         return self.forward_proj(h)
