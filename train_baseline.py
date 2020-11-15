@@ -205,9 +205,7 @@ if __name__ == '__main__':
 
     # Initialize the dataset
     dataset = BaselineDataset(tracks="all-no_drums", seq_len=args.context_len)
-    dataloader = DataLoader(dataset,
-                            shuffle=True,
-                            num_workers=0) # this is important else it hangs (multiprocessing issue?)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0) # this is important else it hangs (multiprocessing issue?)
 
     if not args.only_test:
         # Train the model using MAML
