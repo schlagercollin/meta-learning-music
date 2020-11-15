@@ -156,34 +156,28 @@ def outer_maml_step(model, outer_optimizer, dataloader, device, args, split):
         with higher.innerloop_ctx(model, inner_opt, copy_initial_weights=False) as (fnet, diffopt):
             # Inside the inner loop, do gradient steps on the support set
             for _ in range(args.num_inner_updates):
-                support_input, support_labels = task_tr[:, :-1], task_tr[:, 1:]
+                support_input, support_labels = task_tr[:, :, :-1], task_tr[:, :, 1:]
                 support_logits = fnet.forward(support_input)
 
                 # The class dimension needs to go in the middle for the CrossEntropyLoss, and the 
                 # necessary permute for this depends on the type of model
                 if args.model_type == "SimpleLSTM":
-                    support_logits = support_logits.permute(0, 2, 1)
+                    support_logits = support_logits.permute(1, 3, 2, 0)
                 elif args.model_type == "SimpleTransformer":
                     support_logits = support_logits.permute(1, 2, 0)
-
-                # And the labels need to be (batch, additional_dims)
-                support_labels = support_labels.permute(1, 0)
 
                 support_loss = F.cross_entropy(support_logits, support_labels)
                 diffopt.step(support_loss)
 
             # After that, calculate the loss (for outer optimization) on the query set
-            query_input, query_labels = task_ts[:, :-1], task_ts[:, 1:]
+            query_input, query_labels = task_ts[:, :, :-1], task_ts[:, :, 1:]
             query_logits = fnet.forward(query_input)
 
             # The class dimension needs to go in the middle for the CrossEntropyLoss
             if args.model_type == "SimpleLSTM":
-                query_logits = query_logits.permute(0, 2, 1)
+                query_logits = query_logits.permute(1, 3, 2, 0)
             elif args.model_type == "SimpleTransformer":
                 query_logits = query_logits.permute(1, 2, 0)
-
-            # And the labels need to be (batch, additional_dims)
-            query_labels = query_labels.permute(1, 0)
 
             query_loss = F.cross_entropy(query_logits, query_labels)
             query_losses.append(query_loss.item())

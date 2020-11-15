@@ -104,8 +104,8 @@ class TaskHandler():
             meta_batch_size = min(meta_batch_size, len(self.test_genres))
             genres = random.sample(self.test_genres, k=meta_batch_size)
 
-        train_context = np.zeros((meta_batch_size, k_train, context_len))
-        test_context = np.zeros((meta_batch_size, k_test, test_prefix_len+context_len))
+        train_context = np.zeros((meta_batch_size, k_train, 3, context_len//3))
+        test_context = np.zeros((meta_batch_size, k_test, 3, (test_prefix_len+context_len)//3))
 
         for batch_idx, genre in enumerate(genres):
             relevant_encodings = self.encodings_by_genre[genre]
@@ -117,24 +117,32 @@ class TaskHandler():
             
             for idx, song in enumerate(train_songs):
                 full_encoding = relevant_encodings[song]
+
+                if len(full_encoding) < context_len:
+                    full_encoding += [0] * (context_len - len(full_encoding))
+
                 encoding_num_notes = len(full_encoding) // 3
                 context_num_notes = context_len // 3
 
                 context_start = 3 * random.randint(0, max(0, encoding_num_notes-context_num_notes))
-                context = full_encoding[context_start:context_start+context_len]
+                context = np.array(full_encoding[context_start:context_start+context_len]).reshape(context_len//3, 3).T
 
-                train_context[batch_idx, idx, :len(context)] = context
+                train_context[batch_idx, idx, :, :context.shape[1]] = context
 
             
             for idx, song in enumerate(test_songs):
                 full_encoding = relevant_encodings[song]
+
+                if len(full_encoding) < context_len+test_prefix_len:
+                    full_encoding += [0] * (context_len + test_prefix_len - len(full_encoding))
+
                 encoding_num_notes = len(full_encoding) // 3
                 context_num_notes = (test_prefix_len+context_len) // 3
 
                 context_start = 3 * random.randint(0, max(0, encoding_num_notes-context_num_notes))
-                context = full_encoding[context_start:context_start+context_len+test_prefix_len]
+                context = np.array(full_encoding[context_start:context_start+context_len+test_prefix_len]).reshape((context_len+test_prefix_len)//3, 3).T
 
-                test_context[batch_idx, idx, :len(context)] = context
+                test_context[batch_idx, idx, :, :context.shape[1]] = context
 
         return torch.tensor(train_context, dtype=torch.long), torch.tensor(test_context, dtype=torch.long), genres
 

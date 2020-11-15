@@ -23,18 +23,13 @@ class SimpleLSTM(nn.Module):
 
         self.vocab_size = vocab_size
 
-        # Encodes the (pitch, dur, adv) tuples
-        self.token_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
+        self.pitch_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
+        self.duration_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
+        self.advance_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
 
-        # Encodes the position within each tuple, i.e. [0, 1, 2, 0, 1, 2, ...]
-        self.pos_embedding = nn.Embedding(3, embed_dim, sparse=True)
+        self.lstm = nn.LSTM(3 * embed_dim, hidden_dim, num_layers=num_layers, dropout=dropout)
 
-
-        # NOTE: input dimension is 2 * embed_dim because we have embeddings for both
-        # the token IDs and the positional IDs
-        self.lstm = nn.LSTM(2 * embed_dim, hidden_dim, num_layers=num_layers, dropout=dropout)
-
-        self.proj = nn.Linear(hidden_dim, self.vocab_size)
+        self.proj = nn.Linear(hidden_dim, self.vocab_size * 3)
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
@@ -42,26 +37,29 @@ class SimpleLSTM(nn.Module):
     def forward(self, token_ids):
         '''
         Args:
-            token_ids: size is (batch_size, sequence_length)
+            token_ids: size is (batch_size, 3, sequence_length)
         '''
-        batch_size, seq_len = token_ids.shape
+        batch_size, _, seq_len = token_ids.shape
 
-        token_embeds = self.token_embedding(token_ids)
+        pitch_ids, duration_ids, advance_ids = torch.split(token_ids, 1, dim=1)
+
+        pitch_embeds = self.pitch_embedding(pitch_ids.squeeze(1))
+        duration_embeds = self.duration_embedding(duration_ids.squeeze(1))
+        advance_embeds = self.advance_embedding(advance_ids.squeeze(1))
+
 
         # Permute into (seq_len, batch, embed_size)
-        token_embeds = token_embeds.permute(1, 0, 2)
+        pitch_embeds = pitch_embeds.permute(1, 0, 2)
+        duration_embeds = duration_embeds.permute(1, 0, 2)
+        advance_embeds = advance_embeds.permute(1, 0, 2)
 
-        # The position ids are just 0, 1, and 2 repeated for as long
-        # as the sequence length
-        pos_ids = torch.tensor([0, 1, 2]).repeat(batch_size, math.ceil(seq_len/3))[:, :seq_len]
-        pos_ids = pos_ids.to(self.device)
-        pos_embeds = self.pos_embedding(pos_ids)
-        pos_embeds = pos_embeds.permute(1, 0, 2)
-
-        full_embeds = torch.cat((token_embeds, pos_embeds), dim=2)
+        full_embeds = torch.cat((pitch_embeds, duration_embeds, advance_embeds), dim=2)
 
         lstm_out, _ = self.lstm(full_embeds)
 
         projected = self.proj(lstm_out)
+
+        # We need to convert the output into shape (seq_len, batch_size, 3, vocab_size)
+        projected = projected.reshape(seq_len, batch_size, 3, self.vocab_size)
 
         return projected

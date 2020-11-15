@@ -131,32 +131,26 @@ def generate(model, dataloader, device, args, split):
         with higher.innerloop_ctx(model, inner_opt, copy_initial_weights=False) as (fnet, diffopt):
             # Inside the inner loop, do gradient steps on the support set
             for _ in range(args.num_inner_updates):
-                support_input, support_labels = task_tr[:, :-1], task_tr[:, 1:]
+                support_input, support_labels = task_tr[:, :, :-1], task_tr[:, :, 1:]
                 support_logits = fnet.forward(support_input)
 
                 # The class dimension needs to go in the middle for the CrossEntropyLoss, and the 
                 # necessary permute for this depends on the type of model
                 if args.model_type == "SimpleLSTM":
-                    support_logits = support_logits.permute(0, 2, 1)
+                    support_logits = support_logits.permute(1, 3, 2, 0)
                 elif args.model_type == "SimpleTransformer":
                     support_logits = support_logits.permute(1, 2, 0)
-
-                # And the labels need to be (batch, additional_dims)
-                support_labels = support_labels.permute(1, 0)
 
                 support_loss = F.cross_entropy(support_logits, support_labels)
                 diffopt.step(support_loss)
 
             # After that, let's generate some samples using the query set as condition
             reference_seq = task_ts
-            generated_seq = task_ts[:, :args.condition_len]
+            generated_seq = task_ts[:, :, :args.condition_len]
 
             with torch.no_grad():
                 for i in range(args.generation_len):
-
-                    # In order to have the transformer not complain, we pass only the context_len - 1 last
-                    # tokens of the generated output into the model
-                    logits = fnet.forward(generated_seq[:, -(args.condition_len-1):], pos_idx_start=(i+1)%3)
+                    logits = fnet.forward(generated_seq)
 
                     # Transformer outputs logits as (batch, seq_len, hidden), so we permute it
                     # to match the expected (seq_len, batch, hidden_)
@@ -168,11 +162,20 @@ def generate(model, dataloader, device, args, split):
 
                     else:
                         logits[-1, :, :] /= args.temperature
-                        # Note: K-masking not yet implemented
-                        log_probs = F.softmax(logits[-1, :, :], dim=-1)
-                        pred = torch.multinomial(log_probs, num_samples=1)
 
-                    generated_seq = torch.cat((generated_seq, pred), dim=1)
+                        pitch_logits, duration_logits, advance_logits = torch.split(logits[-1, :, :, :], 1, dim=1)
+
+                        pitch_logprobs = F.softmax(pitch_logits.squeeze(1) / args.temperature, dim=-1)
+                        duration_logprobs = F.softmax(duration_logits.squeeze(1) / args.temperature, dim=-1)
+                        advance_logprobs = F.softmax(advance_logits.squeeze(1) / args.temperature, dim=-1)
+
+                        pitch_pred = torch.multinomial(pitch_logprobs, num_samples=1).squeeze(1)
+                        duration_pred = torch.multinomial(duration_logprobs, num_samples=1).squeeze(1)
+                        advance_pred = torch.multinomial(advance_logprobs, num_samples=1).squeeze(1)
+
+                        combined_preds = torch.stack([pitch_pred, duration_pred, advance_pred], dim=1).unsqueeze(2)
+
+                    generated_seq = torch.cat((generated_seq, combined_preds), dim=2)
 
             reference_sequences[genres[task_num]] = reference_seq
             generated_sequences[genres[task_num]] = generated_seq
@@ -216,8 +219,10 @@ def process_sequences(ref_seqs_dict, gen_seqs_dict, sample_dir):
 
         for song_idx in range(ref_seqs.shape[0]):
 
-            ref = ref_seqs[song_idx, :].cpu().numpy().tolist()
-            gen = gen_seqs[song_idx, :].cpu().numpy().tolist()
+            # We need to transpose and flatten to go from thee distinct arrays of pitches, durations, and advances
+            # into a single array of pitch, duration, advance, pitch, duration, advance, etc.
+            ref = ref_seqs[song_idx, :].cpu().numpy().T.flatten()
+            gen = gen_seqs[song_idx, :].cpu().numpy().T.flatten()
 
             ref_stream = decode(ref)
             gen_stream = decode(gen)
