@@ -115,7 +115,7 @@ class SimpleTransformer(nn.Module):
         # Initialize the final forward layer
         self.forward_proj = nn.Linear(hidden_dim, self.vocab_size)
 
-    def forward(self, token_ids):
+    def forward(self, token_ids, pos_idx_start=0):
         '''
         Performs the forward pass.
 
@@ -129,7 +129,7 @@ class SimpleTransformer(nn.Module):
         token_embeds = token_embeds.permute(1, 0, 2) # (seq_len, batch_size, embed_dim)
         
         # Perform the position embedding
-        pos_ids = torch.tensor([0, 1, 2]).repeat(batch_size, math.ceil(seq_len/3))[:, :seq_len]
+        pos_ids = torch.tensor([0, 1, 2]).repeat(batch_size, math.ceil(seq_len/3)+1)[:, pos_idx_start:seq_len+pos_idx_start]
         pos_ids = pos_ids.to(self.device)
         pos_embeds = self.pos_embedding(pos_ids)
         pos_embeds = pos_embeds.permute(1, 0, 2)
