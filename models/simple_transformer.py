@@ -16,9 +16,12 @@ class PositionalEncodingLayer(nn.Module):
     """
     def __init__(self, embed_dim, context_len):
         super(PositionalEncodingLayer, self).__init__()
-        pos_encoding = torch.zeros(context_len, embed_dim)
-        position = torch.arange(0, context_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, embed_dim, 2).float() * (-math.log(10000.0) / embed_dim))
+
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        pos_encoding = torch.zeros(context_len, embed_dim).to(self.device)
+        position = torch.arange(0, context_len, dtype=torch.float).unsqueeze(1).to(self.device)
+        div_term = torch.exp(torch.arange(0, embed_dim, 2).float() * (-math.log(10000.0) / embed_dim)).to(self.device)
         pos_encoding[:, 0::2] = torch.sin(position * div_term)
         pos_encoding[:, 1::2] = torch.cos(position * div_term)
         pos_encoding = pos_encoding.unsqueeze(0)
@@ -47,6 +50,7 @@ class TransformerBlock(nn.Module):
     def __init__(self, hidden_dim, num_heads, context_len):
         super(TransformerBlock, self).__init__()
 
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.num_heads = num_heads
 
         # Initialize the position encoding
@@ -54,15 +58,16 @@ class TransformerBlock(nn.Module):
         self.pos_encoding_layer = PositionalEncodingLayer(hidden_dim, context_len)        
 
         # Initialize the Multihead Attention and associated LayerNorm
-        self.attention_norm = nn.LayerNorm(hidden_dim)
-        self.attention = nn.MultiheadAttention(hidden_dim, num_heads)
+        self.attention_norm = nn.LayerNorm(hidden_dim).to(self.device)
+        self.attention = nn.MultiheadAttention(hidden_dim, num_heads).to(self.device)
 
         # Initialize attention mask
         self.register_buffer("attention_mask", torch.tril(torch.ones(context_len, context_len)))
+        self.attention_mask = self.attention_mask.to(self.device)
 
         # Initialize the feedforward layer and associated layernorm
-        self.forward_norm = nn.LayerNorm(hidden_dim)
-        self.forward_proj = nn.Linear(hidden_dim, hidden_dim)
+        self.forward_norm = nn.LayerNorm(hidden_dim).to(self.device)
+        self.forward_proj = nn.Linear(hidden_dim, hidden_dim).to(self.device)
 
     def forward(self, x):
         '''
@@ -73,6 +78,7 @@ class TransformerBlock(nn.Module):
         '''
         batch_size, seq_len, hidden_dim = x.shape
 
+        x = x.to(self.device)
         x = self.pos_encoding_layer(x)
 
         # Multihead Attention expects shape (seq_Len, batch_size, hidden)
@@ -123,6 +129,7 @@ class SimpleTransformer(nn.Module):
            token_ids: Token ids with size (batch_size, sequence_length)
         '''
         batch_size, seq_len = token_ids.shape
+        token_ids = token_ids.to(self.device)
 
         # Perform the token embedding
         token_embeds = self.token_embedding(token_ids)
