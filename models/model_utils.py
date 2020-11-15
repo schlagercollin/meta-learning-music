@@ -44,7 +44,9 @@ def load_model(model, experiment_name, load_from_iteration):
     '''
     path = os.path.join("experiments", experiment_name, "checkpoints",
                         "iter_{}.pth".format(load_from_iteration))
-    model.load_state_dict(torch.load(path))
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model.load_state_dict(torch.load(path, map_location=torch.device(device)))
 
 def save_model(model, experiment_name, iteration):
     '''
