@@ -126,7 +126,7 @@ class SimpleTransformer(nn.Module):
         self.proj = nn.Conv1d(2*embed_dim, hidden_dim, 1)
 
         # Initialize the transformer blocks
-        self.blocks = [TransformerBlock(hidden_dim, num_heads, context_len) for _ in range(num_blocks)]
+        self.blocks = nn.ModuleList([TransformerBlock(hidden_dim, num_heads, context_len) for _ in range(num_blocks)])
 
         # Initialize the final forward layer
         self.forward_proj = nn.Linear(hidden_dim, self.vocab_size)
