@@ -162,7 +162,11 @@ def validate(model, dataloader, device, args):
             inputs, labels = batch[:, :-1], batch[:, 1:]
 
             # The class dimension needs to go in the middle for the CrossEntropyLoss
-            logits = model(inputs).permute(0, 2, 1)
+            logits = model(inputs)
+            if args.model_type == "SimpleLSTM":
+                logits = logits.permute(0, 2, 1)
+            elif args.model_type == "SimpleTransformer":
+                logits = logits.permute(1, 2, 0)
 
             # And the labels need to be (batch, additional_dims)
             labels = labels.permute(1, 0)
@@ -190,7 +194,11 @@ def test(model, dataloader, device, args):
             inputs, labels = batch[:, :-1], batch[:, 1:]
 
             # The class dimension needs to go in the middle for the CrossEntropyLoss
-            logits = model(inputs).permute(0, 2, 1)
+            logits = model(inputs)
+            if args.model_type == "SimpleLSTM":
+                logits = logits.permute(0, 2, 1)
+            elif args.model_type == "SimpleTransformer":
+                logits = logits.permute(1, 2, 0)
 
             # And the labels need to be (batch, additional_dims)
             labels = labels.permute(1, 0)
