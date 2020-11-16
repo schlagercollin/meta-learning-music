@@ -218,13 +218,16 @@ def process_sequences(ref_seqs_dict, gen_seqs_dict, sample_dir):
 
             ref = ref_seqs[song_idx, :].cpu().numpy().tolist()
             gen = gen_seqs[song_idx, :].cpu().numpy().tolist()
+            just_gen = gen_seqs[song_idx, ref_seqs.shape[1]:].cpu().numpy().tolist()  # exclude reference tokens 
 
             ref_stream = decode(ref)
             gen_stream = decode(gen)
+            just_gen_stream = decode(just_gen)
 
             # Write out both the reference and generated sequences
             ref_stream.write('midi', fp=os.path.join(sample_dir, "{}_{}_{}.midi".format(genre, song_idx, "reference")))
-            gen_stream.write('midi', fp=os.path.join(sample_dir, "{}_{}_{}.midi".format(genre, song_idx, "generated")))
+            gen_stream.write('midi', fp=os.path.join(sample_dir, "{}_{}_{}.midi".format(genre, song_idx, "all")))
+            just_gen_stream.write('midi', fp=os.path.join(sample_dir, "{}_{}_{}.midi".format(genre, song_idx, "generated")))
 
 
 if __name__ == '__main__':
