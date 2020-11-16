@@ -3,12 +3,14 @@
 # Contains general utility functions.
 
 import os
+import json
+import time
 import random
 import logging
 import torch
 import numpy as np
 
-def initialize_experiment(experiment_name, log_name, seed):
+def initialize_experiment(experiment_name, log_name, seed, args):
     """
     Initializes experiment folders, files and sets the random
     seed, if any is provided.
@@ -17,7 +19,7 @@ def initialize_experiment(experiment_name, log_name, seed):
     initialize_seeds(seed)
 
     # Initialize folders
-    initialize_experiment_folders(experiment_name)
+    initialize_experiment_folders(experiment_name, args)
 
     # Initialize logging
     initialize_log(experiment_name, log_name)
@@ -33,7 +35,7 @@ def initialize_seeds(seed):
         np.random.seed(seed)
         random.seed(seed)
 
-def initialize_experiment_folders(experiment_name):
+def initialize_experiment_folders(experiment_name, args):
     """
     Initializes the folders for the experiment.
     """
@@ -41,6 +43,11 @@ def initialize_experiment_folders(experiment_name):
     # Initialize the main folder
     path = os.path.join("experiments", experiment_name)
     mkdir(path)
+
+    # Write out args to a json for parameter tracking
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    with open(os.path.join(path, f"train_args_{timestr}.json"), "w") as fp:
+        json.dump(vars(args), fp, sort_keys=True, indent=4)
 
     # Initialize subfolders
     mkdir(get_plot_folder(experiment_name))

@@ -217,7 +217,7 @@ if __name__ == '__main__':
     args = get_arguments()
 
     # Initialize experiment folders
-    utils.initialize_experiment(args.experiment_name, args.log_name, args.seed)
+    utils.initialize_experiment(args.experiment_name, args.log_name, args.seed, args)
 
     # Initialize the model
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
