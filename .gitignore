@@ -1,7 +1,7 @@
 *.npz
 */**.npz
 data
-sampling
+sampling/samples
 .vscode
 
 # Byte-compiled / optimized / DLL files
