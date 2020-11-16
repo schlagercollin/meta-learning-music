@@ -81,8 +81,11 @@ def get_arguments():
     return args
 
 def train(model, dataloader, device, args):
+    
+    # Set to train mode (train split)
+    dataloader.dataset.train()
+    
     # Initialize the optimizer
-    # Looks like we need SGD due to a sparse gradients problem?
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # Initialize the validation loss list
@@ -90,45 +93,50 @@ def train(model, dataloader, device, args):
 
     iteration = 0
 
-    for epoch in range(args.num_epochs):
-        with tqdm(dataloader, total=math.ceil(len(dataloader.dataset)/args.batch_size)) as progbar:
-            progbar.set_description("[Epoch {}/{}]. Running batches...".format(epoch, args.num_epochs))
-            for batch in progbar:
-                # print("Batch starting!")
-                batch = batch.to(device)
-                inputs, labels = batch[:, :-1], batch[:, 1:]
+    try:
+        for epoch in range(args.num_epochs):
+            with tqdm(dataloader, total=math.ceil(len(dataloader.dataset)/args.batch_size)) as progbar:
+                progbar.set_description("[Epoch {}/{}]. Running batches...".format(epoch, args.num_epochs))
+                for batch in progbar:
+                    # print("Batch starting!")
+                    batch = batch.to(device)
+                    inputs, labels = batch[:, :-1], batch[:, 1:]
 
-                # print("Batch split! Input size: ", inputs.shape)
+                    # print("Batch split! Input size: ", inputs.shape)
 
-                # The class dimension needs to go in the middle for the CrossEntropyLoss
-                logits = model(inputs).permute(0, 2, 1)
+                    # The class dimension needs to go in the middle for the CrossEntropyLoss
+                    logits = model(inputs).permute(0, 2, 1)
 
-                # print("Logits computed!")
+                    # print("Logits computed!")
 
-                # And the labels need to be (batch, additional_dims)
-                labels = labels.permute(1, 0)
+                    # And the labels need to be (batch, additional_dims)
+                    labels = labels.permute(1, 0)
 
-                loss = F.cross_entropy(logits, labels)
-                progbar.set_postfix(Loss=loss.item())
+                    loss = F.cross_entropy(logits, labels)
+                    progbar.set_postfix(Loss=loss.item())
 
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                    optimizer.zero_grad()
 
-                # print("Loss propagated!")
+                    # print("Loss propagated!")
 
-                if (iteration + 1) % args.report_train_every == 0:
-                    logging.info("Average Training Loss for Iteration {}: {}".format(iteration + 1, loss))
+                    if (iteration + 1) % args.report_train_every == 0:
+                        logging.info("Average Training Loss for Iteration {}: {}".format(iteration + 1, loss))
 
-                if (iteration + 1) % args.evaluate_every == 0:
-                    val_loss, _ = validate(model, dataloader, device, args)
-                    logging.info("Average Validation Loss for Iteration {}: {}".format(iteration + 1, val_loss))
-                    validation_losses.append(val_loss)
+                    if (iteration + 1) % args.evaluate_every == 0:
+                        val_loss, _ = validate(model, dataloader, device, args)
+                        logging.info("Average Validation Loss for Iteration {}: {}".format(iteration + 1, val_loss))
+                        validation_losses.append(val_loss)
 
-                if (iteration + 1) % args.save_checkpoint_every == 0:
-                    save_model(model, args.experiment_name, iteration + 1)
+                    if (iteration + 1) % args.save_checkpoint_every == 0:
+                        save_model(model, args.experiment_name, iteration + 1)
 
-                iteration += 1
+                    iteration += 1
+
+    except KeyboardInterrupt:
+        print("Interrupted training.")
+        pass
 
 
     logging.info("We have finished training the model!")
