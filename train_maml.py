@@ -15,7 +15,7 @@ import utils
 import constants
 import vis_utils
 from dataset.task_dataset import TaskHandler
-from models.model_utils import initialize_model, save_model
+from models.model_utils import initialize_model, save_model, save_entire_model
 
 def get_arguments():
     '''
@@ -124,9 +124,12 @@ def train(model, dataloader, device, args):
                 # Save the model
                 if (iteration + 1) % args.save_checkpoint_every == 0:
                     save_model(model, args.experiment_name, iteration + 1)
+                    save_entire_model(model, args.experiment_name, iteration + 1)
+
         except KeyboardInterrupt:
             logging.info("Keyboard interrupt! Exiting training loop early.")
             save_model(model, args.experiment_name, iteration + 1)
+            save_entire_model(model, args.experiment_name, iteration + 1)
             pass
 
         logging.info("We have finished training the model!")

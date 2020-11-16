@@ -12,12 +12,18 @@ from models.simple_transformer import SimpleTransformer
 
 
 def initialize_model(experiment_name, model_type, load_from_iteration,
-                     device, args):
+                     device, args, load_whole_object=False):
     '''
     Initializes a model of the provided model type. If load_from_iteration
     is not set to -1, then we will load the model from the associated checkpoint
     in the experiment folder named experiment_name
     '''
+
+    if load_whole_object:
+        print("Loading entire model!")
+        model = load_entire_model(experiment_name, load_from_iteration)
+        return model
+
     # Initialize a completely new model
     model = get_model(model_type, args)
     model = model.to(device)
@@ -52,6 +58,22 @@ def load_model(model, experiment_name, load_from_iteration):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.load_state_dict(torch.load(path, map_location=torch.device(device)))
 
+def load_entire_model(experiment_name, load_from_iteration):
+    '''
+    Loads model parameters from a checkpoint.
+    '''
+    path = os.path.join("experiments", experiment_name, "checkpoints",
+                        "MODEL_iter_{}.pth".format(load_from_iteration))
+
+    print(f"Loading model from {path}.")
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"{path} doesn't exist.")
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = torch.load(path, map_location=torch.device(device))
+
+    return model
+
 def save_model(model, experiment_name, iteration):
     '''
     Saves model parameters to the checkpoint folder
@@ -59,3 +81,11 @@ def save_model(model, experiment_name, iteration):
     path = os.path.join("experiments", experiment_name, "checkpoints",
                         "iter_{}.pth".format(iteration))
     torch.save(model.state_dict(), path)
+
+def save_entire_model(model, experiment_name, iteration):
+    '''
+    Saves model parameters to the checkpoint folder
+    '''
+    path = os.path.join("experiments", experiment_name, "checkpoints",
+                        "MODEL_iter_{}.pth".format(iteration))
+    torch.save(model, path)
