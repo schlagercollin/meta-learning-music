@@ -18,7 +18,7 @@ from dataset.task_dataset import TaskHandler
 from models.model_utils import initialize_model, save_model, save_entire_model
 
 def get_arguments():
-    '''
+    '''--
     Uses argparse to get the arguments for the experiment
     '''
     
@@ -263,7 +263,7 @@ if __name__ == '__main__':
     # Initialize the model
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = initialize_model(args.experiment_name, args.model_type,
-                             args.load_from_iteration, device, args)
+                             args.load_from_iteration, device, args, load_whole_object=True)
 
     # Initialize the dataset
     # Enable sampling multiple tasks and sampling from train, val or test specically 
