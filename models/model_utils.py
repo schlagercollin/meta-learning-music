@@ -19,7 +19,7 @@ def initialize_model(experiment_name, model_type, load_from_iteration,
     in the experiment folder named experiment_name
     '''
 
-    if load_whole_object:
+    if load_whole_object and load_from_iteration != -1:
         print("Loading entire model!")
         model = load_entire_model(experiment_name, load_from_iteration)
         return model
