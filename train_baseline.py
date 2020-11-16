@@ -104,8 +104,13 @@ def train(model, dataloader, device, args):
 
                     # print("Batch split! Input size: ", inputs.shape)
 
-                    # The class dimension needs to go in the middle for the CrossEntropyLoss
-                    logits = model(inputs).permute(0, 2, 1)
+                    # The class dimension needs to go in the middle for the CrossEntropyLoss, and the 
+                    # necessary permute for this depends on the type of model
+                    logits = model(inputs)
+                    if args.model_type == "SimpleLSTM":
+                        logits = logits.permute(0, 2, 1)
+                    elif args.model_type == "SimpleTransformer":
+                        logits = logits.permute(1, 2, 0)
 
                     # print("Logits computed!")
 
