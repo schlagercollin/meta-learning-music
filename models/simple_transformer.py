@@ -23,7 +23,7 @@ class PositionalEncodingLayer(nn.Module):
         pos_encoding = self.construct_pos_encoding(self.context_len)
         self.register_buffer('pos_encoding', pos_encoding)
 
-    def construct_pos_encoding(context_len):
+    def construct_pos_encoding(self, context_len):
         pos_encoding = torch.zeros(context_len, self.embed_dim).to(self.device)
         position = torch.arange(0, context_len, dtype=torch.float).unsqueeze(1).to(self.device)
         div_term = torch.exp(torch.arange(0, self.embed_dim, 2).float() * (-math.log(10000.0) / self.embed_dim)).to(self.device)
@@ -118,8 +118,8 @@ class SimpleTransformer(nn.Module):
 
         # Initialize the token and position embeddings
         self.vocab_size = vocab_size
-        self.token_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
-        self.pos_embedding = nn.Embedding(3, embed_dim, sparse=True)
+        self.token_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=False)
+        self.pos_embedding = nn.Embedding(3, embed_dim, sparse=False)
 
         # Initialze the projection to the hidden dim. Note that we need to double the embed_dim, because we
         # concatenate the token and positional embeddings

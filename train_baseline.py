@@ -83,7 +83,7 @@ def get_arguments():
 def train(model, dataloader, device, args):
     # Initialize the optimizer
     # Looks like we need SGD due to a sparse gradients problem?
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # Initialize the validation loss list
     validation_losses = []

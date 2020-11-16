@@ -24,10 +24,10 @@ class SimpleLSTM(nn.Module):
         self.vocab_size = vocab_size
 
         # Encodes the (pitch, dur, adv) tuples
-        self.token_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=True)
+        self.token_embedding = nn.Embedding(self.vocab_size, embed_dim, sparse=False)
 
         # Encodes the position within each tuple, i.e. [0, 1, 2, 0, 1, 2, ...]
-        self.pos_embedding = nn.Embedding(3, embed_dim, sparse=True)
+        self.pos_embedding = nn.Embedding(3, embed_dim, sparse=False)
 
 
         # NOTE: input dimension is 2 * embed_dim because we have embeddings for both

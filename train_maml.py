@@ -98,7 +98,7 @@ def train(model, dataloader, device, args):
     # Does this prevent us from using CUDA though?
     with torch.backends.cudnn.flags(enabled=False):
         # Initialize the optimizer
-        outer_optimizer = torch.optim.SGD(model.parameters(), lr=args.outer_lr)
+        outer_optimizer = torch.optim.Adam(model.parameters(), lr=args.outer_lr)
 
         # Initialize the validation loss list
         validation_losses = []
@@ -201,7 +201,7 @@ def test(model, dataloader, device, args):
     # An artifact of the inner training loop
     # Initialize the optimizer
     with torch.backends.cudnn.flags(enabled=False):    
-        outer_optimizer = torch.optim.SGD(model.parameters(), lr=args.outer_lr)
+        outer_optimizer = torch.optim.Adam(model.parameters(), lr=args.outer_lr)
 
         # Initialize the test loss list
         test_losses = []
