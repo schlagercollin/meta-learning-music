@@ -136,14 +136,14 @@ def train(model, dataloader, device, args):
 
                     if (iteration + 1) % args.save_checkpoint_every == 0:
                         save_model(model, args.experiment_name, iteration + 1)
-                        save_entire_model(model, args.experiment_name, iteration + 1)
+                        #save_entire_model(model, args.experiment_name, iteration + 1)
 
                     iteration += 1
 
     except KeyboardInterrupt:
         print("Interrupted training.")
         save_model(model, args.experiment_name, iteration + 1)
-        save_entire_model(model, args.experiment_name, iteration + 1)
+        #save_entire_model(model, args.experiment_name, iteration + 1)
         pass
 
 
@@ -225,7 +225,7 @@ if __name__ == '__main__':
     # Initialize the model
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = initialize_model(args.experiment_name, args.model_type,
-                             args.load_from_iteration, device, args, load_whole_object=True)
+                             args.load_from_iteration, device, args, load_whole_object=False)
 
     # Initialize the dataset
     dataset = BaselineDataset(tracks="all-no_drums", seq_len=args.context_len)

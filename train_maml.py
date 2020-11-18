@@ -124,12 +124,12 @@ def train(model, dataloader, device, args):
                 # Save the model
                 if (iteration + 1) % args.save_checkpoint_every == 0:
                     save_model(model, args.experiment_name, iteration + 1)
-                    save_entire_model(model, args.experiment_name, iteration + 1)
+                    #save_entire_model(model, args.experiment_name, iteration + 1)
 
         except KeyboardInterrupt:
             logging.info("Keyboard interrupt! Exiting training loop early.")
             save_model(model, args.experiment_name, iteration + 1)
-            save_entire_model(model, args.experiment_name, iteration + 1)
+            #save_entire_model(model, args.experiment_name, iteration + 1)
             pass
 
         logging.info("We have finished training the model!")
@@ -164,6 +164,7 @@ def outer_maml_step(model, outer_optimizer, dataloader, device, args, split):
             for _ in range(args.num_inner_updates):
                 support_input, support_labels = task_tr[:, :-1], task_tr[:, 1:]
                 support_logits = fnet.forward(support_input)
+                print("The output dimensions are: {}".format(support_logits.shape))
 
                 # The class dimension needs to go in the middle for the CrossEntropyLoss, and the 
                 # necessary permute for this depends on the type of model
@@ -173,6 +174,7 @@ def outer_maml_step(model, outer_optimizer, dataloader, device, args, split):
                     support_logits = support_logits.permute(1, 2, 0)
 
                 # And the labels need to be (batch, additional_dims)
+                print("Support labels shape: {}".format(support_labels.shape))
                 support_labels = support_labels.permute(1, 0)
 
                 support_loss = F.cross_entropy(support_logits, support_labels)
@@ -263,7 +265,7 @@ if __name__ == '__main__':
     # Initialize the model
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = initialize_model(args.experiment_name, args.model_type,
-                             args.load_from_iteration, device, args, load_whole_object=True)
+                             args.load_from_iteration, device, args, load_whole_object=False)
 
     # Initialize the dataset
     # Enable sampling multiple tasks and sampling from train, val or test specically 

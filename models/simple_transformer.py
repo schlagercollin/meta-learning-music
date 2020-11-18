@@ -66,16 +66,25 @@ class TransformerBlock(nn.Module):
         self.pos_encoding_layer = PositionalEncodingLayer(hidden_dim, context_len)        
 
         # Initialize the Multihead Attention and associated LayerNorm
-        self.attention_norm = nn.LayerNorm(hidden_dim).to(self.device)
-        self.attention = nn.MultiheadAttention(hidden_dim, num_heads).to(self.device)
+        self.attention_norm = nn.LayerNorm(hidden_dim)
+        self.attention = nn.MultiheadAttention(hidden_dim, num_heads)
 
         # Initialize attention mask
-        self.register_buffer("attention_mask", torch.tril(torch.ones(context_len, context_len)))
-        self.attention_mask = self.attention_mask.to(self.device)
+        attention_mask = self.get_mask(context_len)
+        self.register_buffer("attention_mask", attention_mask)
 
         # Initialize the feedforward layer and associated layernorm
-        self.forward_norm = nn.LayerNorm(hidden_dim).to(self.device)
-        self.forward_proj = nn.Linear(hidden_dim, hidden_dim).to(self.device)
+        self.forward_norm = nn.LayerNorm(hidden_dim)
+        self.forward_proj = nn.Linear(hidden_dim, hidden_dim)
+
+    def get_mask(self, context_len):
+        '''
+        Produces an attention mask.
+        '''
+        mask = torch.tril(torch.ones(context_len, context_len))
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask
+        
 
     def forward(self, x, adaptive_mask):
         '''
@@ -93,7 +102,7 @@ class TransformerBlock(nn.Module):
         x = x.permute(1, 0, 2)
 
         # We permute the attention output back to (batch_size, seq_len, hidden)
-        attention_mask = torch.tril(torch.ones(seq_len, seq_len)).to(self.device) if adaptive_mask \
+        attention_mask = self.get_mask(seq_len).to(self.device) if adaptive_mask \
             else self.attention_mask
         mha_x = self.attention(x, x, x, attn_mask=attention_mask)[0]
         mha_x = self.attention_norm(x + mha_x)

@@ -212,7 +212,7 @@ if __name__ == '__main__':
     # Initialize the model
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = initialize_model(args.experiment_name, args.model_type,
-                             args.load_from_iteration, device, args, load_whole_object=True)
+                             args.load_from_iteration, device, args)
 
     if args.model_type == "SimpleTransformer":                            
         model.adaptive_mask = True
