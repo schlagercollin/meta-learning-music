@@ -6,6 +6,7 @@
 import math
 import torch
 import torch.nn as nn
+from torch.nn import TransformerEncoderLayer, TransformerEncoder
 import torch.nn.functional as F
 import numpy as np
 
@@ -30,18 +31,19 @@ class ReferenceTransformer(nn.Module):
 
         # Initialize the transformer
         self.src_mask = None
-        self.pos_encoder = PositionalEncodingLayer(embed_dim, 5000)
-        encoder_layers = TransformerEncoderLayer(embed_dim, num_heads, hidden_dim, dropout)
+        self.pos_encoder = PositionalEncodingLayer(2 * embed_dim, 5000)
+        encoder_layers = TransformerEncoderLayer(2 * embed_dim, num_heads, hidden_dim, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, num_blocks)
 
         # Initialize the decoder
-        self.decoder = nn.Linear(embed_dim, self.vocab_size)
+        self.decoder = nn.Linear(2 * embed_dim, self.vocab_size)
 
         self.init_weights()
 
     def init_weights(self):
         initrange = 0.1
-        nn.init.uniform_(self.encoder.weight, -initrange, initrange)
+        nn.init.uniform_(self.token_embedding.weight, -initrange, initrange)
+        nn.init.uniform_(self.pos_embedding.weight, -initrange, initrange)
         nn.init.zeros_(self.decoder.weight)
         nn.init.uniform_(self.decoder.weight, -initrange, initrange)
 
@@ -53,13 +55,13 @@ class ReferenceTransformer(nn.Module):
         mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
         return mask
 
-    def forward(self, x):
+    def forward(self, token_ids):
         '''
         Perform the forward pass, as before. Expects token ids with size
         (batch_size, sequence_length)
         '''
         # Extract the size
-        bsz, seq_len = x.shape
+        batch_size, seq_len = token_ids.shape
         token_ids = token_ids.to(self.device)
 
         # Perform the token embedding
