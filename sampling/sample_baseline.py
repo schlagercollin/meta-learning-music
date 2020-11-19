@@ -126,6 +126,9 @@ def generate(model, dataloader, device, args):
 
                     logits = model(generated_seq)
 
+                    if args.model_type == "SimpleTransformer":
+                        logits = logits.permute(1, 0, 2)
+
                     if args.temperature == 0:
                         pred = torch.argmax(logits[-1, :, :], dim=-1).reshape(-1, 1)
 
@@ -204,12 +207,15 @@ if __name__ == '__main__':
     args = get_arguments()
 
     # Initialize experiment folders
-    utils.initialize_experiment(args.experiment_name, args.log_name, args.seed)
+    utils.initialize_experiment(args.experiment_name, args.log_name, args.seed, args)
 
     # Initialize the model
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = initialize_model(args.experiment_name, args.model_type,
                              args.load_from_iteration, device, args)
+
+    if args.model_type == "SimpleTransformer":                            
+        model.adaptive_mask = True
 
     # Initialize the dataset
     dataset = BaselineDataset(tracks="all-no_drums", seq_len=args.context_len, return_genre=True)
