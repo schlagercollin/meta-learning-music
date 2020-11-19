@@ -101,14 +101,14 @@ def split_encoding_by_measure(encoding, beats_per_measure=4):
 
     return encodings_by_measure
 
-def encode(stream, beats_per_measure=4):
+def encode(stream):
     """
     Encode a midi stream into tokens of (pitch, duration, advance).
     Also include a measure encoding to denote which measure each
     token came from.
     """
     ids_encoding = []
-    measure_encoding = []
+    types = []
 
     flattened = stream.flat
 
@@ -117,24 +117,29 @@ def encode(stream, beats_per_measure=4):
         advance = next_element.offset - element.offset
 
         duration_idx = get_closest_timing_idx(element.duration.quarterLength)
+        if duration_idx == 0:
+            continue
+
         advance_idx = get_closest_timing_idx(advance)
 
-        cur_measure = int(element.offset/beats_per_measure)
-
         if isinstance(element, m21.note.Note):
-            ids_encoding.append(int(element.pitch.midi))            # pitch
-            ids_encoding.append(duration_idx)                       # duration
-            ids_encoding.append(advance_idx)                        # advance
+            ids_encoding += [int(element.pitch.midi), duration_idx, advance_idx]
+            types.append("note")
 
-            measure_encoding += [cur_measure, cur_measure, cur_measure]
-        # We encode rests as the 0th MIDI note, hopefully it doesn't get used
-        # for real!
+        # We encode rests as the 0th MIDI note, hopefully it doesn't get used for real!
         elif isinstance(element, m21.note.Rest):
-            ids_encoding.append(0)                                  # pitch
-            ids_encoding.append(duration_idx)                       # duration
-            ids_encoding.append(advance_idx)                        # advance
 
-            measure_encoding += [cur_measure, cur_measure, cur_measure]
+            if advance_idx == 0:
+                continue
+
+            # If the previous note was a rest, and the combined duration is less than our maximum
+            if len(types) > 0 and types[-1] == "note" and 0.125 * (duration_idx + ids_encoding[-2]) < 16:
+                ids_encoding[-2] += duration_idx
+                ids_encoding[-1] += advance_idx
+
+            else:
+                ids_encoding += [0, duration_idx, advance_idx]
+                types.append("rest")
 
         elif isinstance(element, m21.chord.Chord):
             # We add a 3-tuple for each note in the chord. For all notes
@@ -142,17 +147,13 @@ def encode(stream, beats_per_measure=4):
             # simultaneously). For the last note of the chord, the last
             # advance should be the actual advance index
             for pitch in element.pitches:
-                ids_encoding.append(int(pitch.midi))                # pitch
-                ids_encoding.append(duration_idx)                   # duration
-                ids_encoding.append(0)                              # advance
-
-                measure_encoding += [cur_measure, cur_measure, cur_measure]
+                ids_encoding += [int(pitch.midi), duration_idx, 0]
+                types.append("note")
 
             # Manually change the last note's advance value
             ids_encoding[-1] = advance_idx
 
-
-    return ids_encoding, measure_encoding
+    return ids_encoding
 
 def decode(encoding):
     """

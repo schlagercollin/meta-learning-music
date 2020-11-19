@@ -95,7 +95,7 @@ class MaestroDataset(Dataset):
             # These lists hold the encodings for each song, in the same order as self.train/val/test_titles
             self.train_encodings, self.val_encodings, self.test_encodings = [], [], []
 
-            all_songs = glob.glob(os.path.join(self.midi_dir, "*/*.midi"))[:10]
+            all_songs = glob.glob(os.path.join(self.midi_dir, "*/*.midi"))
             
             if num_threads > 1:
                 with Pool(num_threads) as pool:
@@ -171,14 +171,13 @@ class MaestroDataset(Dataset):
                             "val": self.val_titles,
                             "test": self.test_titles}
 
-
     def encode_midi(self, path):
         '''
         Encodes the MIDI file at 'path' as a sequence of (pitch, duration, advance) tokens
         '''
         try:
             stream = m21.converter.parse(path)
-            encoding, _ = encode(stream)
+            encoding = encode(stream)
 
             # Extact just the MIDI filename from the full path
             filename = path.split("/")[-1]
@@ -263,6 +262,7 @@ class MaestroDataset(Dataset):
 
 if __name__ == '__main__':
     dataset = MaestroDataset(meta=True, split="train", context_len=30, k_train=1)
+
     from torch.utils.data import DataLoader
 
     dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
