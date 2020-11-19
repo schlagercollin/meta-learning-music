@@ -9,6 +9,7 @@ import os
 import constants
 from models.simple_lstm import SimpleLSTM
 from models.simple_transformer import SimpleTransformer
+from models.reference_transformer import ReferenceTransformer
 
 
 def initialize_model(experiment_name, model_type, load_from_iteration,
@@ -43,6 +44,9 @@ def get_model(model_type, args):
     elif model_type == "SimpleTransformer":
         return SimpleTransformer(args.embed_dim, args.hidden_dim, args.num_blocks,
                                  args.num_heads, args.context_len-1, constants.VOCAB_SIZE)
+    elif model_type == "ReferenceTransformer":
+        return ReferenceTransformer(constants.VOCAB_SIZE, args.embed_dim, args.hidden_dim,
+                                    args.num_blocks, args.num_heads)
 
 def load_model(model, experiment_name, load_from_iteration):
     '''

@@ -14,7 +14,7 @@ class PositionalEncodingLayer(nn.Module):
     Uses the same positional encoding technique as described in the `Attention Is All You Need` paper (sinusoidal)
 
     """
-    def __init__(self, embed_dim, context_len):
+    def __init__(self, embed_dim, context_len, dropout=0.1):
         super(PositionalEncodingLayer, self).__init__()
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -22,6 +22,8 @@ class PositionalEncodingLayer(nn.Module):
         self.context_len = context_len
         pos_encoding = self.construct_pos_encoding(self.context_len)
         self.register_buffer('pos_encoding', pos_encoding)
+
+        self.dropout = nn.Dropout(p=dropout)
 
     def construct_pos_encoding(self, context_len):
         pos_encoding = torch.zeros(context_len, self.embed_dim).to(self.device)
@@ -46,8 +48,7 @@ class PositionalEncodingLayer(nn.Module):
             embedding = x + pos_encoding[:, :x.shape[1]]
         else:
             embedding = x + self.pos_encoding[:, :x.shape[1]]
-        #embedding = F.dropout(embedding, p=c.POS_ENCODE_DROP_PROB, training=self.training)
-        return embedding
+        return self.dropout(embedding)
 
 class TransformerBlock(nn.Module):
     '''
@@ -175,7 +176,8 @@ class SimpleTransformer(nn.Module):
             h = block(h, self.adaptive_mask)
 
         # Compute the final projection
-        return self.forward_proj(h)
+        output = self.forward_proj(h)
+        return output.permute(1, 0, 2)
 
         
         

@@ -45,7 +45,7 @@ VAL_SPLIT = ["RnB", "Blues", "Latin"]
 TEST_SPLIT = ["Country", "Reggae", "Jazz"]
 
 # Miscellaneous evaluation and checkpointing arguments
-MODEL_TYPES = ["SimpleLSTM", "SimpleTransformer"]
+MODEL_TYPES = ["SimpleLSTM", "SimpleTransformer", "ReferenceTransformer"]
 EVALUATE_EVERY = 100
 REPORT_TRAIN_EVERY = 50
 SAVE_CHECKPOINT_EVERY = 1000
