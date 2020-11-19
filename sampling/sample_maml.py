@@ -136,10 +136,7 @@ def generate(model, dataloader, device, args, split):
 
                 # The class dimension needs to go in the middle for the CrossEntropyLoss, and the 
                 # necessary permute for this depends on the type of model
-                if args.model_type == "SimpleLSTM":
-                    support_logits = support_logits.permute(0, 2, 1)
-                elif args.model_type == "SimpleTransformer":
-                    support_logits = support_logits.permute(1, 2, 0)
+                support_logits = support_logits.permute(0, 2, 1)
 
                 # And the labels need to be (batch, additional_dims)
                 support_labels = support_labels.permute(1, 0)
@@ -160,8 +157,6 @@ def generate(model, dataloader, device, args, split):
 
                     # Transformer outputs logits as (batch, seq_len, hidden), so we permute it
                     # to match the expected (seq_len, batch, hidden_)
-                    if args.model_type == "SimpleTransformer":
-                        logits = logits.permute(1, 0, 2)
 
                     if args.temperature == 0:
                         pred = torch.argmax(logits[-1, :, :], dim=-1).reshape(-1, 1)

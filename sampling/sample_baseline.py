@@ -126,9 +126,6 @@ def generate(model, dataloader, device, args):
 
                     logits = model(generated_seq)
 
-                    if args.model_type == "SimpleTransformer":
-                        logits = logits.permute(1, 0, 2)
-
                     if args.temperature == 0:
                         pred = torch.argmax(logits[-1, :, :], dim=-1).reshape(-1, 1)
 
@@ -213,7 +210,6 @@ if __name__ == '__main__':
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = initialize_model(args.experiment_name, args.model_type,
                              args.load_from_iteration, device, args)
-
     if args.model_type == "SimpleTransformer":                            
         model.adaptive_mask = True
 

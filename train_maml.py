@@ -164,17 +164,12 @@ def outer_maml_step(model, outer_optimizer, dataloader, device, args, split):
             for _ in range(args.num_inner_updates):
                 support_input, support_labels = task_tr[:, :-1], task_tr[:, 1:]
                 support_logits = fnet.forward(support_input)
-                print("The output dimensions are: {}".format(support_logits.shape))
 
                 # The class dimension needs to go in the middle for the CrossEntropyLoss, and the 
                 # necessary permute for this depends on the type of model
-                if args.model_type == "SimpleLSTM":
-                    support_logits = support_logits.permute(0, 2, 1)
-                elif args.model_type == "SimpleTransformer":
-                    support_logits = support_logits.permute(1, 2, 0)
+                support_logits = support_logits.permute(0, 2, 1)
 
                 # And the labels need to be (batch, additional_dims)
-                print("Support labels shape: {}".format(support_labels.shape))
                 support_labels = support_labels.permute(1, 0)
 
                 support_loss = F.cross_entropy(support_logits, support_labels)
@@ -185,10 +180,7 @@ def outer_maml_step(model, outer_optimizer, dataloader, device, args, split):
             query_logits = fnet.forward(query_input)
 
             # The class dimension needs to go in the middle for the CrossEntropyLoss
-            if args.model_type == "SimpleLSTM":
-                query_logits = query_logits.permute(0, 2, 1)
-            elif args.model_type == "SimpleTransformer":
-                query_logits = query_logits.permute(1, 2, 0)
+            query_logits = query_logits.permute(0, 2, 1)
 
             # And the labels need to be (batch, additional_dims)
             query_labels = query_labels.permute(1, 0)
@@ -245,10 +237,7 @@ def evaluate_zero_shot(model, dataloader, device, args):
     query_logits = model.forward(query_input)
 
     # The class dimension needs to go in the middle for the CrossEntropyLoss
-    if args.model_type == "SimpleLSTM":
-        query_logits = query_logits.permute(0, 2, 1)
-    elif args.model_type == "SimpleTransformer":
-        query_logits = query_logits.permute(1, 2, 0)
+    query_logits = query_logits.permute(0, 2, 1)
 
     # And the labels need to be (batch, additional_dims)
     query_labels = query_labels.permute(1, 0)
