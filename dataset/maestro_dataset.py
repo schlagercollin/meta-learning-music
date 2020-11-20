@@ -113,7 +113,7 @@ class MaestroDataset(Dataset):
                             self.train_titles.append(title)
                             self.train_encodings.append(encoding)
 
-                        elif split == "val":
+                        elif split == "validation":
                             self.val_titles.append(title)
                             self.val_encodings.append(encoding)
 
@@ -123,7 +123,9 @@ class MaestroDataset(Dataset):
 
             else:
                 fail_count = 0
-                for path in tqdm(all_songs, desc="Encoding MIDI streams", total=len(all_songs)):
+                # for path in tqdm(all_songs, desc="Encoding MIDI streams", total=len(all_songs)):
+                for idx, path in enumerate(all_songs):
+                    print("\n[{}/{}]".format(idx, len(all_songs)))
                     title, encoding = self.encode_midi(path)
 
                     if title == "Failed":
@@ -136,7 +138,7 @@ class MaestroDataset(Dataset):
                         self.train_titles.append(title)
                         self.train_encodings.append(encoding)
 
-                    elif split == "val":
+                    elif split == "validation":
                         self.val_titles.append(title)
                         self.val_encodings.append(encoding)
 
@@ -176,8 +178,12 @@ class MaestroDataset(Dataset):
         Encodes the MIDI file at 'path' as a sequence of (pitch, duration, advance) tokens
         '''
         try:
+            print("Parsing stream at:", path)
             stream = m21.converter.parse(path)
+
+            print("\tRunning encoding")
             encoding = encode(stream)
+            print("\tFinished!")
 
             # Extact just the MIDI filename from the full path
             filename = path.split("/")[-1]
@@ -261,13 +267,10 @@ class MaestroDataset(Dataset):
             return torch.tensor(self.encodings_dict[self.split][start:start+self.context_len], dtype=torch.long)
 
 if __name__ == '__main__':
-    dataset = MaestroDataset(meta=True, split="train", context_len=30, k_train=1)
+    dataset = MaestroDataset(meta=True, split="train", context_len=30, k_train=1, num_threads=1)
 
-    from torch.utils.data import DataLoader
+    print("Num train titles:", len(dataset.train_titles))
+    print("Num val titles:", len(dataset.val_titles))
+    print("Num test titles:", len(dataset.test_titles))
 
-    dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
-    for batch in dataloader:
-        print("Batch: ", batch[0])
-        print("Shape: ", batch[0].shape)
-        assert False
 
