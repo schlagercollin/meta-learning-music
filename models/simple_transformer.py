@@ -56,7 +56,7 @@ class TransformerBlock(nn.Module):
     Transformer paper.
     '''
 
-    def __init__(self, hidden_dim, num_heads):
+    def __init__(self, hidden_dim, num_heads, dropout=0.1):
         super(TransformerBlock, self).__init__()
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -64,14 +64,16 @@ class TransformerBlock(nn.Module):
 
         # Initialize the position encoding
         self.hidden_dim = hidden_dim
-        self.pos_encoding_layer = PositionalEncodingLayer(hidden_dim, 5000)        
+        self.pos_encoding_layer = PositionalEncodingLayer(hidden_dim, 5000, dropout)        
 
         # Initialize the Multihead Attention and associated LayerNorm
         self.attention_norm = nn.LayerNorm(hidden_dim)
+        self.attention_drop = nn.Dropout(p=dropout)
         self.attention = nn.MultiheadAttention(hidden_dim, num_heads)
 
         # Initialize the feedforward layer and associated layernorm
         self.forward_norm = nn.LayerNorm(hidden_dim)
+        self.forward_drop = nn.Dropout(p=dropout)
         self.forward_proj = nn.Linear(hidden_dim, hidden_dim)
 
     def forward(self, x, mask):
@@ -91,11 +93,11 @@ class TransformerBlock(nn.Module):
 
         # We permute the attention output back to (batch_size, seq_len, hidden)
         mha_x = self.attention(x, x, x, attn_mask=mask)[0]
-        mha_x = self.attention_norm(x + mha_x)
+        mha_x = self.attention_norm(x + self.attention_drop(mha_x))
 
         # Perform the forward propagation
         f_x = F.relu(self.forward_proj(mha_x))
-        f_x = self.forward_norm(mha_x + f_x)
+        f_x = self.forward_norm(mha_x + self.forward_drop(f_x))
 
         # We need to swap the shape back to (batch_size, seq_len, hidden_dim)
         f_x = f_x.permute(1, 0, 2)
