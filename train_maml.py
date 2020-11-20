@@ -2,6 +2,7 @@
 # ----------------
 # Training script for models using MAML.
 
+import random
 import argparse
 import torch
 import torch.nn.functional as F
@@ -15,6 +16,7 @@ import utils
 import constants
 import vis_utils
 from dataset.task_dataset import TaskHandler
+from dataset.maestro_dataset import MaestroDataset
 from models.model_utils import initialize_model, save_model, save_entire_model
 
 def get_arguments():
@@ -45,6 +47,8 @@ def get_arguments():
                         help="Number of attention heads")
 
     # Data loading arguments
+    parser.add_argument("--dataset", type=str, default="lakh",
+                        help="The type of dataset to train on")
     parser.add_argument("--num_support", type=int, default=constants.NUM_SUPPORT,
                         help="Number of support snippets given to the model")
     parser.add_argument("--num_query", type=int, default=constants.NUM_QUERY,
@@ -143,9 +147,25 @@ def outer_maml_step(model, outer_optimizer, dataloader, device, args, split):
     model.train()
 
     # Sample train and test
-    tr_batch, ts_batch, _ = dataloader.sample_task(meta_batch_size=args.meta_batch_size, k_train=args.num_support,
-                                                   k_test=args.num_query, context_len=args.context_len,
-                                                   test_prefix_len=args.test_prefix_len, split=split)
+    if args.dataset == "lakh":
+        tr_batch, ts_batch, _ = dataloader.sample_task(meta_batch_size=args.meta_batch_size, k_train=args.num_support,
+                                                       k_test=args.num_query, context_len=args.context_len,
+                                                       test_prefix_len=args.test_prefix_len, split=split)
+
+    else:
+        if split == "train":
+            dataloader.train()
+        elif split == "val":
+            dataloader.val()
+        elif split == "test":
+            dataloader.test()
+
+        idxs = random.sample(range(len(dataloader)), k=args.meta_batch_size)
+        tr_samples, ts_samples = list(zip(*[dataloader[idx] for idx in idxs]))
+        tr_batch = torch.stack(tr_samples, dim=0)
+        ts_batch = torch.stack(ts_samples, dim=0)
+
+
     tr_batch, ts_batch = tr_batch.to(device), ts_batch.to(device)
 
     # Recall that if we pass in a meta-batch that's too big, it gets minned down to the largest possible value
@@ -226,9 +246,17 @@ def evaluate_zero_shot(model, dataloader, device, args):
     model.eval()
 
     # Sample test
-    _, ts_batch, _ = dataloader.sample_task(meta_batch_size=args.meta_batch_size, k_train=args.num_support,
-                                            k_test=args.num_query, context_len=args.context_len,
-                                            test_prefix_len=args.test_prefix_len, split="test")
+    if args.dataset == "lakh":
+        _, ts_batch, _ = dataloader.sample_task(meta_batch_size=args.meta_batch_size, k_train=args.num_support,
+                                                k_test=args.num_query, context_len=args.context_len,
+                                                test_prefix_len=args.test_prefix_len, split="test")
+    elif args.dataset == "maestro":
+        dataloader.test()
+
+        idxs = random.sample(range(len(dataloader)), k=args.meta_batch_size)
+        _, ts_samples = list(zip(*[dataloader[idx] for idx in idxs]))
+        ts_batch = torch.stack(ts_samples, dim=0)
+
     B, Q, T = ts_batch.shape
     ts_batch = ts_batch.to(device).view(B*Q, T)
 
@@ -258,7 +286,13 @@ if __name__ == '__main__':
 
     # Initialize the dataset
     # Enable sampling multiple tasks and sampling from train, val or test specically 
-    dataloader = TaskHandler(tracks="all-no_drums", num_threads=args.num_workers)
+    if args.dataset == "lakh":
+        dataloader = TaskHandler(tracks="all-no_drums", num_threads=args.num_workers)
+    elif args.dataset == "maestro":
+        dataloader = MaestroDataset(context_len=args.context_len,
+                                    k_train=args.num_support,
+                                    k_test=args.num_query,
+                                    meta=True)
 
     if not args.only_test:
         # Train the model using MAML
