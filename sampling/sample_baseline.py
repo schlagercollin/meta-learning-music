@@ -23,6 +23,7 @@ import utils
 import constants
 import vis_utils
 from dataset.baseline_dataset import BaselineDataset
+from dataset.maestro_dataset import MaestroDataset
 from dataset.data_utils import decode
 from models.model_utils import initialize_model, save_model
 
@@ -50,6 +51,8 @@ def get_arguments():
 
 
     # Data loading arguments
+    parser.add_argument("--dataset", type=str, default="lakh",
+                        help="The type of dataset to train on")
     parser.add_argument("--batch_size", type=int, default=constants.BASELINE_BATCH_SIZE,
                         help="Batch size for training")
     parser.add_argument("--num_workers", type=int, default=constants.NUM_WORKERS,
@@ -115,7 +118,10 @@ def generate(model, dataloader, device, args):
             for batch in tqdm(dataloader, desc='Generating', total=args.num_batch_gen):
                 
                 # unpack the auxiliary genre info
-                batch, genres = batch
+                if args.dataset == "lakh":
+                    batch, genres = batch
+                elif args.dataset == "maestro":
+                    genres = ["maestro"]
 
                 # proceed as normal
                 batch = batch.to(device)
@@ -212,7 +218,10 @@ if __name__ == '__main__':
                              args.load_from_iteration, device, args)
 
     # Initialize the dataset
-    dataset = BaselineDataset(tracks="all-no_drums", seq_len=args.context_len, return_genre=True)
+    if args.dataset == "lakh":
+        dataset = BaselineDataset(tracks="all-no_drums", seq_len=args.context_len, return_genre=True)
+    elif args.dataset == "maestro":
+        dataset = MaestroDataset(context_len=args.context_len, meta=False)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0) # this is important else it hangs (multiprocessing issue?)
 
     ref_seqs, gen_seqs = generate(model, dataloader, device, args)

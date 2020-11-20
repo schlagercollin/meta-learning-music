@@ -17,6 +17,7 @@ import utils
 import constants
 import vis_utils
 from dataset.baseline_dataset import BaselineDataset
+from dataset.maestro_dataset import MaestroDataset
 from models.model_utils import initialize_model, save_model, save_entire_model
 
 def get_arguments():
@@ -43,6 +44,8 @@ def get_arguments():
 
 
     # Data loading arguments
+    parser.add_argument("--dataset", type=str, default="lakh",
+                        help="The type of dataset to train on")
     parser.add_argument("--batch_size", type=int, default=constants.BASELINE_BATCH_SIZE,
                         help="Batch size for training")
     parser.add_argument("--num_workers", type=int, default=constants.NUM_WORKERS,
@@ -219,7 +222,11 @@ if __name__ == '__main__':
                              args.load_from_iteration, device, args, load_whole_object=False)
 
     # Initialize the dataset
-    dataset = BaselineDataset(tracks="all-no_drums", seq_len=args.context_len)
+    if args.dataset == "lakh":
+        dataset = BaselineDataset(tracks="all-no_drums", seq_len=args.context_len)
+    elif args.dataset == "maestro":
+        dataset = MaestroDataset(context_len=args.context_len, meta=False)
+
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0) # this is important else it hangs (multiprocessing issue?)
 
     if not args.only_test:
