@@ -5,6 +5,7 @@ import glob
 import torch
 import pickle
 import random
+import signal
 import argparse
 import numpy as np
 import pandas as pd
@@ -15,6 +16,9 @@ from torch.utils.data import Dataset
 from dataset.data_utils import encode, decode, get_vocab
 from multiprocessing import Pool
 
+def timeout_handler(signum, frame):
+    raise Exception("Timeout!")
+
 class MaestroDataset(Dataset):
     def __init__(self,
                  split="train",
@@ -24,7 +28,8 @@ class MaestroDataset(Dataset):
                  k_test=1,
                  num_threads=4,
                  cache_dir='./data/processed',
-                 raw_data_dir='./data/raw'):
+                 raw_data_dir='./data/raw',
+                 timeout_dur=None):
 
 
         self.split = split
@@ -35,7 +40,6 @@ class MaestroDataset(Dataset):
 
         self.midi_dir = os.path.join(raw_data_dir, 'maestro-v2.0.0')
         self.encodings_dir = os.path.join(cache_dir, 'encodings/maestro')
-
 
         if all([os.path.exists(os.path.join(self.encodings_dir, "{}_encodings.pkl".format(split))) for split in ["train", "val", "test"]]):
             
@@ -97,56 +101,28 @@ class MaestroDataset(Dataset):
 
             all_songs = glob.glob(os.path.join(self.midi_dir, "*/*.midi"))
             
+            self.fail_count = 0
             if num_threads > 1:
                 with Pool(num_threads) as pool:
-                    titles_encodings = list(tqdm(pool.imap(self.encode_midi, all_songs), desc="Encoding MIDI streams", total=len(all_songs)))
-
-                    fail_count = 0
-                    for title, encoding in titles_encodings:
-                        if title == "Failed":
-                            fail_count += 1
-                            continue
-
-                        split = self.title_to_split[title]
-
-                        if split == "train":
-                            self.train_titles.append(title)
-                            self.train_encodings.append(encoding)
-
-                        elif split == "validation":
-                            self.val_titles.append(title)
-                            self.val_encodings.append(encoding)
-
-                        elif split == "test":
-                            self.test_titles.append(title)
-                            self.test_encodings.append(encoding)
+                    tqdm(pool.imap(self.encode_midi, all_songs), desc="Encoding MIDI streams", total=len(all_songs))
 
             else:
-                fail_count = 0
-                # for path in tqdm(all_songs, desc="Encoding MIDI streams", total=len(all_songs)):
-                for idx, path in enumerate(all_songs):
-                    print("\n[{}/{}]".format(idx, len(all_songs)))
-                    title, encoding = self.encode_midi(path)
+                for path in tqdm(all_songs, desc="Encoding MIDI streams", total=len(all_songs)):
 
-                    if title == "Failed":
-                        fail_count += 1
-                        continue
+                    if timeout_dur is not None:
+                        process = multiprocessing.Process(target=self.encode_midi, args=(path,))
+                        process.start()
 
-                    split = self.title_to_split[title]
+                        process.join(timeout_dur)
+                        if process.is_alive():
+                            print("Terminating encode early!")
+                            process.terminate()
+                            process.join()
+                            self.fail_count += 1
 
-                    if split == "train":
-                        self.train_titles.append(title)
-                        self.train_encodings.append(encoding)
+                    self.encode_midi(path)
 
-                    elif split == "validation":
-                        self.val_titles.append(title)
-                        self.val_encodings.append(encoding)
-
-                    elif split == "test":
-                        self.test_titles.append(title)
-                        self.test_encodings.append(encoding)
-
-            print("Successfully encoded MIDIs, with {} failures".format(fail_count))
+            print("Successfully encoded MIDIs, with {} failures".format(self.fail_count))
 
             # Dump the title list and encoding list for each split
             pickle.dump(self.train_titles, open(os.path.join(self.encodings_dir, "train_titles.pkl"), "wb"), protocol=pickle.HIGHEST_PROTOCOL)
@@ -178,22 +154,33 @@ class MaestroDataset(Dataset):
         Encodes the MIDI file at 'path' as a sequence of (pitch, duration, advance) tokens
         '''
         try:
-            print("Parsing stream at:", path)
             stream = m21.converter.parse(path)
-
-            print("\tRunning encoding")
             encoding = encode(stream)
-            print("\tFinished!")
 
             # Extact just the MIDI filename from the full path
             filename = path.split("/")[-1]
             title = self.filename_to_title[filename]
 
-            return title, encoding
+            split = self.title_to_split[title]
+
+            if split == "train":
+                self.train_titles.append(title)
+                self.train_encodings.append(encoding)
+
+            elif split == "validation":
+                self.val_titles.append(title)
+                self.val_encodings.append(encoding)
+
+            elif split == "test":
+                self.test_titles.append(title)
+                self.test_encodings.append(encoding)
+
+        except KeyboardInterrupt:
+            exit()
 
         except:
             print("Error:", sys.exc_info())
-            return "Failed", []
+            self.fail_count += 1
 
     def train(self):
         self.split = "train"
@@ -267,7 +254,7 @@ class MaestroDataset(Dataset):
             return torch.tensor(self.encodings_dict[self.split][start:start+self.context_len], dtype=torch.long)
 
 if __name__ == '__main__':
-    dataset = MaestroDataset(meta=True, split="train", context_len=30, k_train=1, num_threads=1)
+    dataset = MaestroDataset(meta=True, split="train", context_len=30, k_train=1, num_threads=1, timeout_dur=10)
 
     print("Num train titles:", len(dataset.train_titles))
     print("Num val titles:", len(dataset.val_titles))
