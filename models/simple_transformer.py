@@ -56,7 +56,7 @@ class TransformerBlock(nn.Module):
     Transformer paper.
     '''
 
-    def __init__(self, hidden_dim, num_heads, context_len):
+    def __init__(self, hidden_dim, num_heads, dropout=0.1):
         super(TransformerBlock, self).__init__()
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -64,30 +64,19 @@ class TransformerBlock(nn.Module):
 
         # Initialize the position encoding
         self.hidden_dim = hidden_dim
-        self.pos_encoding_layer = PositionalEncodingLayer(hidden_dim, context_len)        
+        self.pos_encoding_layer = PositionalEncodingLayer(hidden_dim, 5000, dropout)        
 
         # Initialize the Multihead Attention and associated LayerNorm
         self.attention_norm = nn.LayerNorm(hidden_dim)
+        self.attention_drop = nn.Dropout(p=dropout)
         self.attention = nn.MultiheadAttention(hidden_dim, num_heads)
-
-        # Initialize attention mask
-        attention_mask = self.get_mask(context_len)
-        self.register_buffer("attention_mask", attention_mask)
 
         # Initialize the feedforward layer and associated layernorm
         self.forward_norm = nn.LayerNorm(hidden_dim)
+        self.forward_drop = nn.Dropout(p=dropout)
         self.forward_proj = nn.Linear(hidden_dim, hidden_dim)
 
-    def get_mask(self, context_len):
-        '''
-        Produces an attention mask.
-        '''
-        mask = torch.tril(torch.ones(context_len, context_len))
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-        return mask
-        
-
-    def forward(self, x, adaptive_mask):
+    def forward(self, x, mask):
         '''
         Performs a forward pass of the TransformerBlock
         
@@ -97,21 +86,18 @@ class TransformerBlock(nn.Module):
         batch_size, seq_len, hidden_dim = x.shape
 
         x = x.to(self.device)
-        x = self.pos_encoding_layer(x, adaptive_mask)
+        x = self.pos_encoding_layer(x)
 
         # Multihead Attention expects shape (seq_len, batch_size, hidden)
         x = x.permute(1, 0, 2)
 
         # We permute the attention output back to (batch_size, seq_len, hidden)
-        attention_mask = self.get_mask(seq_len).to(self.device) if adaptive_mask \
-            else self.attention_mask
-        mha_x = self.attention(x, x, x, attn_mask=attention_mask)[0]
-        mha_x = self.attention_norm(x + mha_x)
-
+        mha_x = self.attention(x, x, x, attn_mask=mask)[0]
+        mha_x = self.attention_norm(x + self.attention_drop(mha_x))
 
         # Perform the forward propagation
         f_x = F.relu(self.forward_proj(mha_x))
-        f_x = self.forward_norm(mha_x + f_x)
+        f_x = self.forward_norm(mha_x + self.forward_drop(f_x))
 
         # We need to swap the shape back to (batch_size, seq_len, hidden_dim)
         f_x = f_x.permute(1, 0, 2)
@@ -120,7 +106,7 @@ class TransformerBlock(nn.Module):
         
 class SimpleTransformer(nn.Module):
 
-    def __init__(self, embed_dim, hidden_dim, num_blocks, num_heads, context_len, vocab_size):
+    def __init__(self, embed_dim, hidden_dim, num_blocks, num_heads, vocab_size):
         super(SimpleTransformer, self).__init__()
         
         # Initialize device
@@ -136,13 +122,21 @@ class SimpleTransformer(nn.Module):
         self.proj = nn.Conv1d(2*embed_dim, hidden_dim, 1)
 
         # Initialize the transformer blocks
-        self.blocks = nn.ModuleList([TransformerBlock(hidden_dim, num_heads, context_len) for _ in range(num_blocks)])
+        self.blocks = nn.ModuleList([TransformerBlock(hidden_dim, num_heads) for _ in range(num_blocks)])
 
         # Initialize the final forward layer
         self.forward_proj = nn.Linear(hidden_dim, self.vocab_size)
 
-        # Initialize adaptive mask state
-        self.adaptive_mask = False
+        # Initialize the attention mask
+        self.src_mask = None
+
+    def get_mask(self, sz):
+        '''
+        Produces an attention mask for the given size
+        '''
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask    
 
     def forward(self, token_ids):
         '''
@@ -170,10 +164,14 @@ class SimpleTransformer(nn.Module):
         # Perform the projection onto hidden_dim
         h = self.proj(full_embeds.permute(1, 2, 0)) # (batch_size, embed_dim, seq_len)
 
-        # Apply the transformer blocks
+        # Produce the mask
         h = h.permute(0, 2, 1) # (batch_size, seq_len, embed_dim)
+        if self.src_mask is None or self.src_mask.size(0) != seq_len:
+            self.src_mask = self.get_mask(seq_len).to(self.device)
+
+        # Apply the transformer blocks
         for block in self.blocks:
-            h = block(h, self.adaptive_mask)
+            h = block(h, self.src_mask)
 
         # Compute the final projection
         output = self.forward_proj(h)

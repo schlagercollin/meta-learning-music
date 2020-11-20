@@ -210,8 +210,6 @@ if __name__ == '__main__':
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = initialize_model(args.experiment_name, args.model_type,
                              args.load_from_iteration, device, args)
-    if args.model_type == "SimpleTransformer":                            
-        model.adaptive_mask = True
 
     # Initialize the dataset
     dataset = BaselineDataset(tracks="all-no_drums", seq_len=args.context_len, return_genre=True)

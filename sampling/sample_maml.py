@@ -234,8 +234,6 @@ if __name__ == '__main__':
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = initialize_model(args.experiment_name, args.model_type,
                              args.load_from_iteration, device, args)
-    if args.model_type == "SimpleTransformer":
-        model.adaptive_mask = True
 
     print("Generating sequences with condition length of {} and generation length of {}.".format(args.condition_len, args.generation_len))
     print("Total generated sequence length will be: {}".format(args.condition_len + args.generation_len))
