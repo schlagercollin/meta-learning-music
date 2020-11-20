@@ -43,7 +43,7 @@ def get_model(model_type, args):
         return SimpleLSTM(args.embed_dim, args.hidden_dim, constants.VOCAB_SIZE)
     elif model_type == "SimpleTransformer":
         return SimpleTransformer(args.embed_dim, args.hidden_dim, args.num_blocks,
-                                 args.num_heads, args.context_len-1, constants.VOCAB_SIZE)
+                                 args.num_heads, constants.VOCAB_SIZE)
     elif model_type == "ReferenceTransformer":
         return ReferenceTransformer(constants.VOCAB_SIZE, args.embed_dim, args.hidden_dim,
                                     args.num_blocks, args.num_heads)
