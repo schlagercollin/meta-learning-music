@@ -29,7 +29,8 @@ class MaestroDataset(Dataset):
                  num_threads=4,
                  cache_dir='./data/processed',
                  raw_data_dir='./data/raw',
-                 timeout_dur=None):
+                 timeout_dur=None,
+                 nonoverlap=False):
 
 
         self.split = split
@@ -37,6 +38,7 @@ class MaestroDataset(Dataset):
         self.meta = meta
         self.k_train = k_train
         self.k_test = k_test
+        self.nonoverlap = nonoverlap
 
         self.midi_dir = os.path.join(raw_data_dir, 'maestro-v2.0.0')
         self.encodings_dir = os.path.join(cache_dir, 'encodings/maestro')
@@ -198,6 +200,7 @@ class MaestroDataset(Dataset):
         N: number of subsequences
         K: length of each subsequence
         '''
+
         indices = range(len(sequence) - (K - 1) * N)
         result = []
         offset = 0
@@ -208,6 +211,12 @@ class MaestroDataset(Dataset):
             offset += K - 1
 
         return result
+
+    def get_title(self, idx):
+        '''
+        Returns the title corresponding to the sequence at a specific index when META = false
+        '''
+        pass
 
     def __len__(self):
         '''
@@ -230,22 +239,40 @@ class MaestroDataset(Dataset):
 
             encoding = self.encodings_dict[self.split][idx]
 
-            # Here a "note index" collapses each tuple of (pitch, duration, advance) into a single value. We're
-            # going to extract subsequences from these note indexes, and then expand them when we slice into the
-            # encoding
-            note_idxs = np.arange(0, len(encoding) // 3)
 
-            note_subsequences = self.get_non_overlapping_subsequences(note_idxs, self.k_train+self.k_test, self.context_len // 3)
+            if self.nonoverlap:
 
-            train_subs, test_subs = note_subsequences[:self.k_train], note_subsequences[self.k_train:]
-            for i, subsequence in enumerate(train_subs):
-                # Here we multiply by 3 to convert this "note index" back into an "encoding index"
-                start = 3 * subsequence[0]
-                support[i, :] = encoding[start:start+self.context_len]
+                # Here a "note index" collapses each tuple of (pitch, duration, advance) into a single value. We're
+                # going to extract subsequences from these note indexes, and then expand them when we slice into the
+                # encoding
+                note_idxs = np.arange(0, len(encoding) // 3)
+                note_subsequences = self.get_non_overlapping_subsequences(note_idxs, self.k_train+self.k_test, self.context_len // 3)
 
-            for i, subsequence in enumerate(test_subs):
-                start = 3 * subsequence[0]
-                query[i, :] = encoding[start:start+self.context_len]
+                train_subs, test_subs = note_subsequences[:self.k_train], note_subsequences[self.k_train:]
+                for i, subsequence in enumerate(train_subs):
+                    # Here we multiply by 3 to convert this "note index" back into an "encoding index"
+                    start = 3 * subsequence[0]
+                    support[i, :] = encoding[start:start+self.context_len]
+
+                for i, subsequence in enumerate(test_subs):
+                    start = 3 * subsequence[0]
+                    query[i, :] = encoding[start:start+self.context_len]
+
+            else:
+                encoding_num_notes = len(encoding) // 3
+                context_num_notes = self.context_len // 3
+
+                for i in range(self.k_train):
+                    context_start = 3 * random.randint(0, max(0, encoding_num_notes-context_num_notes))
+                    context = encoding[context_start:context_start+self.context_len]
+
+                    support[i, :] = context
+
+                for i in range(self.k_test):
+                    context_start = 3 * random.randint(0, max(0, encoding_num_notes-context_num_notes))
+                    context = encoding[context_start:context_start+self.context_len]
+
+                    query[i, :] = context
 
             return torch.tensor(support, dtype=torch.long), torch.tensor(query, dtype=torch.long)
 

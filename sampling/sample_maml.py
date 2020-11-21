@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 import logging
+import random
 import time
 import higher
 import glob
@@ -21,6 +22,7 @@ import utils
 import constants
 import vis_utils
 from dataset.task_dataset import TaskHandler
+from dataset.maestro_dataset import MaestroDataset
 from dataset.data_utils import decode
 from models.model_utils import initialize_model, save_model
 
@@ -49,6 +51,8 @@ def get_arguments():
                         help="Number of attention heads")
 
     # Data loading arguments
+    parser.add_argument("--dataset", type=str, default="lakh",
+                        help="The type of dataset to train on")
     parser.add_argument("--num_support", type=int, default=constants.NUM_SUPPORT,
                         help="Number of support snippets given to the model")
     parser.add_argument("--num_query", type=int, default=constants.NUM_QUERY,
@@ -109,9 +113,20 @@ def generate(model, dataloader, device, args, split):
     model.train()
 
     # Sample train and test
-    tr_batch, ts_batch, genres = dataloader.sample_task(meta_batch_size=args.meta_batch_size, k_train=args.num_support,
-                                                   k_test=args.num_query, context_len=args.context_len,
-                                                   test_prefix_len=args.test_prefix_len, split="test")
+    if args.dataset == "lakh":
+        tr_batch, ts_batch, genres = dataloader.sample_task(meta_batch_size=args.meta_batch_size, k_train=args.num_support,
+                                                       k_test=args.num_query, context_len=args.context_len,
+                                                       test_prefix_len=args.test_prefix_len, split="test")
+
+    elif args.dataset == "maestro":
+        dataloader.test()
+
+        idxs = random.sample(range(len(dataloader)), k=args.meta_batch_size)
+        tr_samples, ts_samples = list(zip(*[dataloader[idx] for idx in idxs]))
+        tr_batch = torch.stack(tr_samples, dim=0)
+        ts_batch = torch.stack(ts_samples, dim=0)
+
+        genres = [dataloader.test_titles[idx] for idx in idxs]
 
     tr_batch, ts_batch = tr_batch.to(device), ts_batch.to(device)
 
@@ -241,8 +256,14 @@ if __name__ == '__main__':
     print()
 
     # Initialize the dataset
-    # Enable sampling multiple tasks and sampling from train, val or test specically 
-    dataloader = TaskHandler(tracks="all-no_drums", num_threads=args.num_workers)
+    if args.dataset == "lakh":
+        # Enable sampling multiple tasks and sampling from train, val or test specically 
+        dataloader = TaskHandler(tracks="all-no_drums", num_threads=args.num_workers)
+    elif args.dataset == "maestro":
+        dataloader = MaestroDataset(context_len=args.context_len,
+                                    k_train=args.num_support,
+                                    k_test=args.num_query,
+                                    meta=True)
 
     ref_seqs, gen_seqs = generate_sequences(model, dataloader, device, args)
 
