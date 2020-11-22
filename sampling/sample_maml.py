@@ -14,6 +14,7 @@ import glob
 import os
 import pickle
 from tqdm import tqdm
+import unidecode
 
 from collections import OrderedDict
 import json
@@ -73,6 +74,8 @@ def get_arguments():
                         help="The length of the de-novo generation (total sequence will be context + generation length")
     parser.add_argument("--temperature", type=float, default=constants.TEMPERATURE,
                         help="Temperature for sampling from the softmax.")
+    parser.add_argument("--repeat_generation", type=int, default=1,
+                        help="Repeats the generation proceedure N times (for convenience to generate a lot of sequences.")
     
     # Miscellaneous evaluation and checkpointing arguments
     parser.add_argument("--model_type", type=str, default="SimpleLSTM", choices=constants.MODEL_TYPES,
@@ -213,6 +216,15 @@ def create_sample_dir(args):
 
     return sample_dir
 
+def clean_string(in_string):
+    """
+    Remove quotes and accents so it plays nicely with file system
+    """
+    unaccented = unidecode.unidecode(in_string) # remove accents
+    string = unaccented.replace('"', '')        # remove '
+    string = string.replace("'", "")            # remove "
+    string = string.replace("/", "")            # remove /
+    return string
 
 def process_sequences(ref_seqs_dict, gen_seqs_dict, sample_dir):
 
@@ -235,9 +247,14 @@ def process_sequences(ref_seqs_dict, gen_seqs_dict, sample_dir):
             just_gen_stream = decode(just_gen)
 
             # Write out both the reference and generated sequences
-            ref_stream.write('midi', fp=os.path.join(sample_dir, "{}_{}_{}.midi".format(genre, song_idx, "reference")))
-            gen_stream.write('midi', fp=os.path.join(sample_dir, "{}_{}_{}.midi".format(genre, song_idx, "all")))
-            just_gen_stream.write('midi', fp=os.path.join(sample_dir, "{}_{}_{}.midi".format(genre, song_idx, "generated")))
+            try:
+                # Remove quotes and accents so it plays nicely with file system (Windows)
+                str_genre = clean_string(genre) # remove accents
+                ref_stream.write('midi', fp=os.path.join(sample_dir, "{}_{}_{}.midi".format(str_genre, song_idx, "reference")))
+                gen_stream.write('midi', fp=os.path.join(sample_dir, "{}_{}_{}.midi".format(str_genre, song_idx, "all")))
+                just_gen_stream.write('midi', fp=os.path.join(sample_dir, "{}_{}_{}.midi".format(str_genre, song_idx, "generated")))
+            except OSError:
+                print("ERROR: Could not save {}_{}_x.midi".format(str_genre, song_idx))
 
 
 if __name__ == '__main__':
@@ -265,16 +282,18 @@ if __name__ == '__main__':
                                     k_test=args.num_query,
                                     meta=True)
 
-    ref_seqs, gen_seqs = generate_sequences(model, dataloader, device, args)
+    for _ in range(args.repeat_generation):
 
-    example_genre = next(iter(ref_seqs))
-    print("Example reference sequence: ", ref_seqs[example_genre][0, :])
-    print("Example generated sequence: ", gen_seqs[example_genre][0, :])
+        ref_seqs, gen_seqs = generate_sequences(model, dataloader, device, args)
 
-    sample_dir = create_sample_dir(args)
-    process_sequences(ref_seqs, gen_seqs, sample_dir)
-    print("Wrote decoded midi files to {}.".format(sample_dir))
+        example_genre = next(iter(ref_seqs))
+        print("Example reference sequence: ", ref_seqs[example_genre][0, :])
+        print("Example generated sequence: ", gen_seqs[example_genre][0, :])
 
-    # Save the raw sequences for reference
-    with open(os.path.join(sample_dir, "raw_sequences.pkl"), "wb") as fp:
-        pickle.dump({"ref": ref_seqs, "gen": gen_seqs}, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        sample_dir = create_sample_dir(args)
+        process_sequences(ref_seqs, gen_seqs, sample_dir)
+        print("Wrote decoded midi files to {}.".format(sample_dir))
+
+        # Save the raw sequences for reference
+        with open(os.path.join(sample_dir, "raw_sequences.pkl"), "wb") as fp:
+            pickle.dump({"ref": ref_seqs, "gen": gen_seqs}, fp, protocol=pickle.HIGHEST_PROTOCOL)
