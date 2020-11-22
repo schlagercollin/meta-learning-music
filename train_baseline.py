@@ -226,6 +226,8 @@ if __name__ == '__main__':
         dataset = BaselineDataset(tracks="all-no_drums", seq_len=args.context_len)
     elif args.dataset == "maestro":
         dataset = MaestroDataset(context_len=args.context_len, meta=False)
+    else:
+        raise ValueError(f"Dataset {args.dataset} not recognized. Should be lakh or maestro.")
 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0) # this is important else it hangs (multiprocessing issue?)
 
