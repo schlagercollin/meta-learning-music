@@ -1,8 +1,9 @@
-# meta-learning-music
+# MuML: Musical Meta-Learning
 
-Code repository for our Stanford CS 330 (Deep Multi-task and Meta-Learning) course project
+Code repository for our Stanford CS 330 (Deep Multi-task and Meta-Learning) course project.
 
 <img src="https://github.com/schlagercollin/meta-learning-music/blob/main/images/muml.png" alt="drawing" width="400"/>
+<img src="https://github.com/schlagercollin/meta-learning-music/blob/main/images/maml.png" alt="maml" width="500"/>
 
 <img src="https://raw.githubusercontent.com/schlagercollin/meta-learning-music/main/images/sample.png" alt="drawing" width="700"/>
 
