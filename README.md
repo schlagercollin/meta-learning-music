@@ -1,8 +1,6 @@
-# meta-learning-music
+# MuML: Musical Meta-Learning
 
-Code repository for our Stanford CS 330 (Deep Multi-task and Meta-Learning) course project
-
-$$\min_{\theta} \sum_{\mathcal{T}_i} \mathcal{L}(\theta - \alpha \nabla_{\theta} \mathcal{L}(\theta, \mathcal{D}_i^{\text{support}}), \mathcal{D}_i^{\text{query}})$$
+Code repository for our Stanford CS 330 (Deep Multi-task and Meta-Learning) course project.
 
 <img src="https://github.com/schlagercollin/meta-learning-music/blob/main/images/muml.png" alt="drawing" width="400"/>
 <img src="https://github.com/schlagercollin/meta-learning-music/blob/main/images/maml.png" alt="maml" width="500"/>
